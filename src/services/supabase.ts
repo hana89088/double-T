@@ -3,7 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+const canInitSupabase = Boolean(supabaseUrl) && Boolean(supabaseAnonKey)
+export const supabase = canInitSupabase ? createClient(supabaseUrl, supabaseAnonKey) : undefined as unknown as ReturnType<typeof createClient>
 
 export type Json =
   | string
