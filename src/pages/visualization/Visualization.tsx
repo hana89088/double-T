@@ -4,6 +4,8 @@ import InteractiveChart from '../../components/charts/InteractiveChart'
 import ChartConfigPanel from '../../components/charts/ChartConfigPanel'
 import Heatmap from '../../components/charts/Heatmap'
 import { ChartConfig } from '../../types'
+import { useDataStore } from '../../stores/dataStore'
+import { computeChecksum } from '../../lib/utils'
 
 // Sample data for demonstration
 const sampleData = [
@@ -24,6 +26,7 @@ const heatmapData = [
 ]
 
 export default function Visualization() {
+  const { processedData } = useDataStore()
   const [chartConfigs, setChartConfigs] = useState<ChartConfig[]>([
     {
       type: 'bar',
@@ -139,7 +142,7 @@ export default function Visualization() {
               <ChartConfigPanel
                 config={chartConfigs[activeChart]}
                 onConfigChange={(config) => updateChartConfig(activeChart, config)}
-                data={sampleData}
+                data={(processedData.length > 0 && processedData[0].month && processedData[0].revenue) ? processedData : sampleData}
               />
 
               {/* Visualization Type Toggle */}
@@ -187,7 +190,7 @@ export default function Visualization() {
                   {chartConfigs.map((config, index) => (
                     <div key={index} className="border-b border-gray-200 pb-8 last:border-b-0">
                       <InteractiveChart
-                        data={sampleData}
+                        data={(processedData.length > 0 && processedData[0].month && processedData[0].revenue) ? processedData : sampleData}
                         config={config}
                         onConfigChange={(newConfig) => updateChartConfig(index, newConfig)}
                       />
