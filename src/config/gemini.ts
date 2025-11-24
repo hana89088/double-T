@@ -28,8 +28,8 @@ const validateModelName = (modelName: string): boolean => {
 
 // Default configuration
 export const DEFAULT_GEMINI_CONFIG: GeminiAPIConfig = {
-  apiKey: '', // Will be set from environment
-  model: 'gemini-pro',
+  apiKey: '',
+  model: 'gemini-1.5-pro',
   temperature: 0.7,
   topP: 0.8,
   topK: 40,
