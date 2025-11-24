@@ -17,11 +17,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { user, setUser, setLoading, setError, setSuccessMessage } = useStore()
   const [loading, setAuthLoading] = useState(true)
+  const isSupabaseConfigured = Boolean((supabase as any)) && Boolean((supabase as any).auth)
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setAuthLoading(false)
+      return
+    }
+
     checkUser()
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: authListener } = (supabase as any).auth.onAuthStateChange(async (_event: any, session: any) => {
       if (session?.user) {
         const userData: User = {
           id: session.user.id,
@@ -45,7 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkUser = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      if (!isSupabaseConfigured) return
+      const { data: { session } } = await (supabase as any).auth.getSession()
       if (session?.user) {
         const userData: User = {
           id: session.user.id,
@@ -69,7 +76,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true)
       setError(null)
       
-      const { data, error } = await supabase.auth.signInWithPassword({
+      if (!isSupabaseConfigured) {
+        setError('Supabase chưa được cấu hình ở môi trường dev')
+        return
+      }
+      const { data, error } = await (supabase as any).auth.signInWithPassword({
         email,
         password,
       })
@@ -101,7 +112,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true)
       setError(null)
       
-      const { data, error } = await supabase.auth.signUp({
+      if (!isSupabaseConfigured) {
+        setError('Supabase chưa được cấu hình ở môi trường dev')
+        return
+      }
+      const { data, error } = await (supabase as any).auth.signUp({
         email,
         password,
         options: {
@@ -137,7 +152,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       setLoading(true)
-      const { error } = await supabase.auth.signOut()
+      if (!isSupabaseConfigured) {
+        setError('Supabase chưa được cấu hình ở môi trường dev')
+        return
+      }
+      const { error } = await (supabase as any).auth.signOut()
       if (error) throw error
       setUser(null)
       setSuccessMessage('Successfully signed out!')
@@ -154,7 +173,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true)
       setError(null)
       
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      if (!isSupabaseConfigured) {
+        setError('Supabase chưa được cấu hình ở môi trường dev')
+        return
+      }
+      const { error } = await (supabase as any).auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       })
 

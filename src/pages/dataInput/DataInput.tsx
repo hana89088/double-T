@@ -96,6 +96,14 @@ export default function DataInput() {
     <div className="min-h-screen bg-gray-50">
       <Navigation />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {isProcessing && (
+          <div className="fixed inset-0 bg-black/30 z-40 flex items-center justify-center">
+            <div className="bg-white rounded-lg shadow p-6 flex items-center gap-3">
+              <span className="animate-spin inline-block w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full" />
+              <span className="text-sm text-gray-700">Đang xử lý dữ liệu…</span>
+            </div>
+          </div>
+        )}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Data Input</h1>
           <p className="mt-2 text-gray-600">
@@ -167,7 +175,8 @@ export default function DataInput() {
               </div>
               <button
                 onClick={handleTextSubmit}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={isProcessing}
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Parse Text Data
               </button>

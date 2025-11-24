@@ -3,7 +3,7 @@ import { Loader2, Brain, FileText, AlertCircle, CheckCircle } from 'lucide-react
 import { Button } from './ui/button';
 import { GeminiAPIService } from '../services/gemini/GeminiAPIService';
 import { GeminiPromptBuilder, createSampleDatasets } from '../utils/geminiPromptBuilder';
-import { geminiConfig } from '../config/gemini';
+import { getGeminiConfig } from '../config/gemini';
 import { GeminiResponse, Dataset } from '../types/gemini';
 import { toast } from 'sonner';
 
@@ -21,8 +21,6 @@ export const GeminiReportGenerator: React.FC<GeminiReportGeneratorProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [userQuery, setUserQuery] = useState('Analyze our marketing performance and provide actionable insights');
 
-  const geminiService = new GeminiAPIService(geminiConfig);
-
   const generateReport = useCallback(async () => {
     if (!userQuery.trim()) {
       toast.error('Please enter a query');
@@ -33,6 +31,13 @@ export const GeminiReportGenerator: React.FC<GeminiReportGeneratorProps> = ({
     setError(null);
 
     try {
+      const cfg = getGeminiConfig();
+      if (!cfg.apiKey) {
+        setError('Gemini API key chưa được cấu hình');
+        toast.error('Gemini API key chưa được cấu hình');
+        return;
+      }
+      const geminiService = new GeminiAPIService(cfg);
       // Create sample datasets for demonstration
       const datasets = createSampleDatasets();
       
@@ -56,7 +61,7 @@ export const GeminiReportGenerator: React.FC<GeminiReportGeneratorProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [userQuery, geminiService, onReportGenerated]);
+  }, [userQuery, onReportGenerated]);
 
   return (
     <div className={`space-y-6 ${className}`}>
