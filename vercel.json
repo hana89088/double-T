@@ -25,6 +25,8 @@
     "VITE_GEMINI_MAX_TOKENS": "@gemini-max-tokens",
     "VITE_GEMINI_TEMPERATURE": "@gemini-temperature",
     "VITE_GEMINI_TOP_P": "@gemini-top-p",
-    "VITE_GEMINI_TOP_K": "@gemini-top-k"
+    "VITE_GEMINI_TOP_K": "@gemini-top-k",
+    "VITE_SUPABASE_URL": "@supabase-url",
+    "VITE_SUPABASE_ANON_KEY": "@supabase-anon-key"
   }
 }
