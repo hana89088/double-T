@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { useStore } from '../../stores/appStore'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const { signIn, loading } = useAuth()
   const navigate = useNavigate()
+  const { error, clearMessages } = useStore()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -104,6 +106,14 @@ export default function Login() {
             </button>
           </div>
         </form>
+        {error && (
+          <div className="mt-4 bg-red-50 border border-red-200 text-red-700 p-3 rounded">
+            <div className="flex justify-between items-center">
+              <span className="text-sm">{error}</span>
+              <button onClick={clearMessages} className="text-red-500 hover:text-red-700 text-sm">×</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
