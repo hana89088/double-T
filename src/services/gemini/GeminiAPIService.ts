@@ -50,8 +50,13 @@ export class GeminiAPIService {
   private async initializeConnection(): Promise<void> {
     try {
       this.genAI = new GoogleGenerativeAI(this.config.apiKey);
-      const modelName = this.config.model || 'gemini-1.5-pro';
-      this.model = this.genAI.getGenerativeModel({ model: modelName });
+      let modelName = this.config.model || 'gemini-1.5-flash';
+      try {
+        this.model = this.genAI.getGenerativeModel({ model: modelName });
+      } catch (_e) {
+        modelName = 'gemini-1.5-flash';
+        this.model = this.genAI.getGenerativeModel({ model: modelName });
+      }
       
       this.connectionStatus.isConnected = true;
       this.connectionStatus.lastConnectionTime = new Date();

@@ -13,7 +13,7 @@ import { findCorrelations } from '@/utils/correlationAnalysis';
 import { toast } from 'sonner';
 
 const Analysis: React.FC = () => {
-  const { processedData, originalData } = useDataStore();
+  const { processedData, originalData, ready } = useDataStore();
   const [statisticalResults, setStatisticalResults] = useState<any>(null);
   const [patterns, setPatterns] = useState<any[]>([]);
   const [correlations, setCorrelations] = useState<any[]>([]);
@@ -172,7 +172,7 @@ const Analysis: React.FC = () => {
     );
   };
 
-  const hasData = processedData.length > 0;
+  const hasData = ready && processedData.length > 0;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -214,6 +214,15 @@ const Analysis: React.FC = () => {
               )}
             </Button>
           </div>
+        )}
+
+        {ready && processedData.length === 0 && (
+          <Alert className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Data is marked ready but empty. Please ensure preprocessing completed in Data Input.
+            </AlertDescription>
+          </Alert>
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">

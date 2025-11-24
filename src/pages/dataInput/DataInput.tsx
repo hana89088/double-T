@@ -14,7 +14,7 @@ export default function DataInput() {
   const [fileName, setFileName] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const { setCurrentDataset } = useStore()
-  const { setOriginalData, setProcessedData } = useDataStore()
+  const { setOriginalData, setProcessedData, setReady, setChecksums } = useDataStore()
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0]
@@ -132,9 +132,9 @@ export default function DataInput() {
 
     const checksumInput = computeChecksum(uploadedData)
     const checksumProcessed = computeChecksum(processed)
-    console.info('Dataset checksums', { input: checksumInput, processed: checksumProcessed })
-
-    toast.success('Dataset saved and pre-processed successfully!')
+    setChecksums({ input: checksumInput, processed: checksumProcessed })
+    setReady(true)
+    toast.success('Dataset saved and pre-processed successfully! Data is ready for analysis.')
   }
 
   return (
@@ -311,6 +311,17 @@ export default function DataInput() {
           >
             Continue to Analysis
           </button>
+        </div>
+
+        <div className="mt-4">
+          {uploadedData.length > 0 && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-green-800">Data uploaded. Click "Continue to Analysis" to finalize preprocessing.</span>
+                <a href="/analysis" className="text-sm text-blue-600 hover:text-blue-800">Go to Analysis</a>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
