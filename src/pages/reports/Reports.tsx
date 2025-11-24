@@ -3,8 +3,25 @@ import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { BarChart3, TrendingUp, FileText, Download } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 export default function Reports() {
+  const [schedule, setSchedule] = useState<{time:string;freq:'daily'|'weekly'|''}>({time:'',freq:''})
+  const [nextRun, setNextRun] = useState<string>('')
+
+  useEffect(() => {
+    const saved = localStorage.getItem('reportSchedule')
+    if (saved) setSchedule(JSON.parse(saved))
+  }, [])
+
+  const saveSchedule = () => {
+    localStorage.setItem('reportSchedule', JSON.stringify(schedule))
+    const now = new Date(); const [h,m] = schedule.time.split(':').map(Number)
+    const next = new Date(now)
+    next.setHours(h||0, m||0, 0, 0)
+    if (next <= now) next.setDate(next.getDate() + (schedule.freq==='weekly'?7:1))
+    setNextRun(next.toLocaleString())
+  }
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
@@ -104,6 +121,21 @@ export default function Reports() {
                   </div>
                   <Button variant="outline" className="text-sm">Download</Button>
                 </div>
+              </div>
+              <div className="mt-6 border-t pt-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Schedule Report</h3>
+                <div className="flex items-center gap-3">
+                  <input type="time" value={schedule.time} onChange={(e)=>setSchedule({...schedule,time:e.target.value})} className="px-3 py-2 border rounded" />
+                  <select value={schedule.freq} onChange={(e)=>setSchedule({...schedule,freq:e.target.value as any})} className="px-3 py-2 border rounded">
+                    <option value="">Select frequency</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                  </select>
+                  <Button variant="outline" onClick={saveSchedule}>Save Schedule</Button>
+                </div>
+                {nextRun && (
+                  <p className="text-sm text-gray-600 mt-2">Next run: {nextRun}. Note: background sending requires server-side scheduler.</p>
+                )}
               </div>
             </CardContent>
           </Card>

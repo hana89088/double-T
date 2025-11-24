@@ -4,6 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell, ScatterChart, Scatter, ResponsiveContainer } from 'recharts';
 import { TrendingUp, BarChart3, PieChart as PieChartIcon, Activity, Download, Filter } from 'lucide-react';
+import * as XLSX from 'xlsx'
+// lightweight PDF export for summary
+import jsPDF from 'jspdf'
 
 interface MarketingData {
   month: string;
@@ -76,7 +79,7 @@ export default function DataAnalysisReport() {
   const avgROI = data.reduce((sum, item) => sum + item.roi, 0) / data.length;
   const totalMarketingSpend = data.reduce((sum, item) => sum + item.marketingSpend, 0);
 
-  const handleExport = () => {
+  const handleExportJSON = () => {
     const reportData = {
       summary: {
         totalRevenue,
@@ -99,6 +102,51 @@ export default function DataAnalysisReport() {
     link.click();
     URL.revokeObjectURL(url);
   };
+
+  const handleExportCSV = () => {
+    const rows = [['month','revenue','customers','conversionRate','marketingSpend','roi','category','satisfaction'],
+      ...data.map(d => [d.month,d.revenue,d.customers,d.conversionRate,d.marketingSpend,d.roi,d.category,d.satisfaction])]
+    const csv = rows.map(r => r.join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'marketing-analysis-report.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleExportExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Analysis')
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+    const blob = new Blob([wbout], { type: 'application/octet-stream' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'marketing-analysis-report.xlsx'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+    doc.setFontSize(16)
+    doc.text('Marketing Analysis Report', 40, 40)
+    doc.setFontSize(12)
+    const lines = [
+      `Generated: ${new Date().toLocaleString()}`,
+      `Total Revenue: $${totalRevenue.toLocaleString()}`,
+      `Total Customers: ${totalCustomers.toLocaleString()}`,
+      `Avg Conversion Rate: ${avgConversionRate.toFixed(2)}%`,
+      `Avg ROI: ${avgROI.toFixed(2)}x`,
+      `Total Marketing Spend: $${totalMarketingSpend.toLocaleString()}`,
+    ]
+    let y = 70
+    lines.forEach(l => { doc.text(l, 40, y); y += 18 })
+    doc.save('marketing-analysis-report.pdf')
+  }
 
   const renderBarChart = () => (
     <ResponsiveContainer width="100%" height={300}>
@@ -287,10 +335,24 @@ export default function DataAnalysisReport() {
               Biểu đồ phân tán
             </Button>
           </div>
-          <Button onClick={handleExport} variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Xuất báo cáo
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handleExportCSV} variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              CSV
+            </Button>
+            <Button onClick={handleExportExcel} variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Excel
+            </Button>
+            <Button onClick={handleExportPDF} variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              PDF
+            </Button>
+            <Button onClick={handleExportJSON} variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              JSON
+            </Button>
+          </div>
         </div>
 
         {/* Charts Grid */}
