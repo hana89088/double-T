@@ -61,7 +61,7 @@ export const GeminiReportGenerator: React.FC<GeminiReportGeneratorProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [userQuery, geminiService, onReportGenerated]);
+  }, [userQuery, onReportGenerated]);
 
   return (
     <div className={`space-y-6 ${className}`}>
