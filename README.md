@@ -1,57 +1,25 @@
-# React + TypeScript + Vite
+# Marketing Insights — Developer Guide
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Data Flow
+- Upload data in `Data Input` → preprocessing pipeline runs (clean, fill missing, normalize, clip outliers) → set `ready=true` and persist to store.
+- `Analysis` uses `processedData` when `ready=true`. If `ready=false`, it shows a clear message instead of fake data.
+- `Visualization` consumes `processedData` when schema phù hợp, fallback an toàn nếu không.
 
-Currently, two official plugins are available:
+## Visualization Filters & Export
+- Filters:
+  - Category filter: chọn cột dạng chuỗi và danh mục cần hiển thị.
+  - Range filter: chọn cột số và nhập `min/max` để lọc dữ liệu.
+- Zoom: dùng Brush trên biểu đồ Bar/Line để phóng to đoạn dữ liệu.
+- Export: nút `Export PNG` lưu ảnh biểu đồ.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Reports & Exports
+- Xuất báo cáo: CSV, Excel (xlsx), PDF tóm tắt, JSON.
+- Lập lịch: lưu cấu hình (daily/weekly, time) vào localStorage; hiển thị “Next run”.
 
-## Expanding the ESLint configuration
+## Testing
+- Chạy `pnpm test`.
+- Bao gồm kiểm thử unit/integration cơ bản cho data processing, Supabase service, export PNG/CSV (jsdom).
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  extends: [
-    // other configs...
-    // Enable lint rules for React
-    reactX.configs['recommended-typescript'],
-    // Enable lint rules for React DOM
-    reactDom.configs.recommended,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+## Deploy
+- Push lên `master` → Vercel sẽ tự động redeploy.
+- Env cần thiết: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GEMINI_API_KEY`, `VITE_GEMINI_MODEL_NAME` (khuyến nghị `gemini-1.5-flash`).

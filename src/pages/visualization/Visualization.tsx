@@ -50,6 +50,22 @@ export default function Visualization() {
 
   const [activeChart, setActiveChart] = useState(0)
   const [showHeatmap, setShowHeatmap] = useState(false)
+  const [filters, setFilters] = useState<{categoryColumn?:string; selectedCategories?:string[]; rangeColumn?:string; min?:number; max?:number}>({})
+
+  const baseData = (processedData.length > 0 && processedData[0].month && processedData[0].revenue) ? processedData : sampleData
+  const filteredData = baseData.filter((row:any) => {
+    if (filters.categoryColumn && filters.selectedCategories && filters.selectedCategories.length) {
+      if (!filters.selectedCategories.includes(String(row[filters.categoryColumn]))) return false
+    }
+    if (filters.rangeColumn) {
+      const v = Number(row[filters.rangeColumn])
+      if (!isNaN(v)) {
+        if (filters.min !== undefined && v < (filters.min as number)) return false
+        if (filters.max !== undefined && v > (filters.max as number)) return false
+      }
+    }
+    return true
+  })
 
   const updateChartConfig = (index: number, config: ChartConfig) => {
     const newConfigs = [...chartConfigs]
@@ -142,7 +158,8 @@ export default function Visualization() {
               <ChartConfigPanel
                 config={chartConfigs[activeChart]}
                 onConfigChange={(config) => updateChartConfig(activeChart, config)}
-                data={(processedData.length > 0 && processedData[0].month && processedData[0].revenue) ? processedData : sampleData}
+                data={baseData}
+                onFiltersChange={(f)=>setFilters(prev=>({ ...prev, ...f }))}
               />
 
               {/* Visualization Type Toggle */}
@@ -190,7 +207,7 @@ export default function Visualization() {
                   {chartConfigs.map((config, index) => (
                     <div key={index} className="border-b border-gray-200 pb-8 last:border-b-0">
                       <InteractiveChart
-                        data={(processedData.length > 0 && processedData[0].month && processedData[0].revenue) ? processedData : sampleData}
+                        data={filteredData}
                         config={config}
                         onConfigChange={(newConfig) => updateChartConfig(index, newConfig)}
                       />

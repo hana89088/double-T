@@ -17,6 +17,7 @@ import {
   Cell
 } from 'recharts'
 import { Brush } from 'recharts'
+import { exportSvgToPng } from '../../utils/exportImage'
 import { ChartConfig } from '../../types'
 
 interface InteractiveChartProps {
@@ -213,29 +214,9 @@ export default function InteractiveChart({ data, config, onConfigChange }: Inter
       <div className="mt-4 flex items-center justify-end">
         <button
           onClick={() => {
-            const svg = chartRef.current?.querySelector('svg')
+            const svg = chartRef.current?.querySelector('svg') as SVGSVGElement | null
             if (!svg) return
-            const serializer = new XMLSerializer()
-            const svgStr = serializer.serializeToString(svg)
-            const canvas = document.createElement('canvas')
-            const img = new Image()
-            const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
-            const url = URL.createObjectURL(blob)
-            img.onload = () => {
-              canvas.width = img.width
-              canvas.height = img.height
-              const ctx = canvas.getContext('2d')!
-              ctx.drawImage(img, 0, 0)
-              URL.revokeObjectURL(url)
-              canvas.toBlob((png) => {
-                if (!png) return
-                const a = document.createElement('a')
-                a.href = URL.createObjectURL(png)
-                a.download = `${(config.title || 'chart').replace(/\s+/g,'_')}.png`
-                a.click()
-              }, 'image/png')
-            }
-            img.src = url
+            exportSvgToPng(svg, `${(config.title || 'chart').replace(/\s+/g,'_')}.png`)
           }}
           className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200 text-sm"
         >

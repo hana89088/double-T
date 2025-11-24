@@ -4,12 +4,23 @@ interface ChartConfigPanelProps {
   config: ChartConfig
   onConfigChange: (config: ChartConfig) => void
   data: Record<string, any>[]
+  onFiltersChange?: (filters: ChartFilters) => void
 }
 
-export default function ChartConfigPanel({ config, onConfigChange, data }: ChartConfigPanelProps) {
+interface ChartFilters {
+  categoryColumn?: string
+  selectedCategories?: string[]
+  rangeColumn?: string
+  min?: number
+  max?: number
+}
+
+export default function ChartConfigPanel({ config, onConfigChange, data, onFiltersChange }: ChartConfigPanelProps) {
   if (!data || data.length === 0) return null
 
   const columns = Object.keys(data[0])
+  const numericColumns = columns.filter(c => data.every(row => row[c] === '' || row[c] === null || row[c] === undefined || typeof row[c] === 'number' || !isNaN(Number(row[c]))))
+  const categoryColumns = columns.filter(c => data.some(row => typeof row[c] === 'string'))
 
   const handleConfigChange = (key: keyof ChartConfig, value: any) => {
     onConfigChange({
@@ -159,15 +170,45 @@ export default function ChartConfigPanel({ config, onConfigChange, data }: Chart
             <span className="text-sm text-gray-700">Show Legend</span>
           </label>
           
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              checked={config.showGrid || false}
-              onChange={(e) => handleConfigChange('showGrid', e.target.checked)}
-              className="mr-2"
-            />
-            <span className="text-sm text-gray-700">Show Grid</span>
-          </label>
+        <label className="flex items-center">
+          <input
+            type="checkbox"
+            checked={config.showGrid || false}
+            onChange={(e) => handleConfigChange('showGrid', e.target.checked)}
+            className="mr-2"
+          />
+          <span className="text-sm text-gray-700">Show Grid</span>
+        </label>
+        </div>
+
+        {/* Filters */}
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold text-gray-800">Filters</h4>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category Column</label>
+            <select className="w-full px-3 py-2 border border-gray-300 rounded" onChange={(e)=>onFiltersChange?.({ categoryColumn: e.target.value, selectedCategories: [] })}>
+              <option value="">Select column</option>
+              {categoryColumns.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Range Column</label>
+            <select className="w-full px-3 py-2 border border-gray-300 rounded" onChange={(e)=>{
+              const col = e.target.value
+              if (!col) return onFiltersChange?.({ rangeColumn: undefined })
+              const vals = data.map(r => Number(r[col])).filter(v => !isNaN(v))
+              const min = Math.min(...vals)
+              const max = Math.max(...vals)
+              onFiltersChange?.({ rangeColumn: col, min, max })
+            }}>
+              <option value="">Select column</option>
+              {numericColumns.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <input type="number" className="px-2 py-1 border border-gray-300 rounded" placeholder="Min" onChange={(e)=>onFiltersChange?.({ min: Number(e.target.value) })} />
+              <input type="number" className="px-2 py-1 border border-gray-300 rounded" placeholder="Max" onChange={(e)=>onFiltersChange?.({ max: Number(e.target.value) })} />
+            </div>
+          </div>
         </div>
       </div>
     </div>
