@@ -12,6 +12,8 @@ export class GeminiAPIService {
   private requestQueue: Array<() => Promise<any>> = [];
   private isProcessing: boolean = false;
   private lastRequestTime: number = 0;
+  private cache = new Map<string, any>();
+  private concurrent = 0;
   private metrics: {
     totalRequests: number;
     successfulRequests: number;
@@ -77,7 +79,8 @@ export class GeminiAPIService {
   private async enforceRateLimit(): Promise<void> {
     const now = Date.now();
     const timeSinceLastRequest = now - this.lastRequestTime;
-    const minInterval = 1000 / 2; // 2 requests per second
+    const rps = (this.config as any).rateLimitRps || 2;
+    const minInterval = 1000 / Math.max(1, rps);
 
     if (timeSinceLastRequest < minInterval) {
       const waitTime = minInterval - timeSinceLastRequest;
@@ -374,14 +377,25 @@ export class GeminiAPIService {
       
       // Build prompt
       const prompt = this.buildPromptFromObject(sanitizedPromptObject);
+
+      // caching identical prompts
+      if (this.cache.has(prompt)) {
+        return this.cache.get(prompt);
+      }
       
       // Generate content with retry logic
       const result = await this.retryWithBackoff(async () => {
         if (!this.connectionStatus.isConnected) {
           await this.initializeConnection();
         }
-        
+        // concurrency guard
+        const maxConcurrent = (this.config as any).maxConcurrent || 2;
+        while (this.concurrent >= maxConcurrent) {
+          await new Promise(r => setTimeout(r, 50));
+        }
+        this.concurrent++;
         const generationResult = await this.model.generateContent(prompt);
+        this.concurrent--;
         return generationResult;
       });
       
@@ -390,6 +404,7 @@ export class GeminiAPIService {
       
       // Parse and structure the response
       const parsedResponse = this.parseResponse(text);
+      this.cache.set(prompt, parsedResponse);
       
       // Update metrics
       const responseTime = Date.now() - startTime;
@@ -406,6 +421,27 @@ export class GeminiAPIService {
       if (error instanceof Error && error.message.includes('rate limit')) {
         this.metrics.rateLimitHits++;
         console.warn('Rate limit hit, consider increasing rate limit configuration');
+        // graceful degradation
+        return {
+          success: true,
+          data: {
+            insights: ['Service is busy. Showing cached or summary insights.'],
+            recommendations: ['Please retry shortly; system is throttling requests.'],
+            metrics: {},
+            rawResponse: '',
+            confidenceScore: 0.2,
+            processingTime: responseTime,
+            promptTokens: 0,
+            responseTokens: 0,
+            totalTokens: 0
+          },
+          metadata: {
+            model: this.config.model,
+            version: 'degraded',
+            timestamp: new Date().toISOString(),
+            processingTime: responseTime
+          }
+        } as any;
       }
       
       console.error('Error generating Gemini insights:', error);

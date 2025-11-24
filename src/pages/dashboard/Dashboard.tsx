@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useStore } from '../../stores/appStore'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import Navigation from '../../components/layout/Navigation'
-import { fetchDashboardMetrics, isSupabaseConfigured } from '../../services/supabase'
+import { fetchDashboardMetrics, isSupabaseConfigured, subscribeToMetrics } from '../../services/supabase'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -27,6 +27,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     load()
+    const unsub = subscribeToMetrics(() => { load() })
+    return () => { unsub() }
   }, [])
 
   const chartData = useMemo(() => {

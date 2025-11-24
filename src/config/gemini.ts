@@ -78,14 +78,19 @@ export const createGeminiConfig = (): GeminiAPIConfig => {
       throw new Error('Max output tokens must be between 1 and 8192');
     }
     
+    const rateLimitRps = parseInt(getEnvVar('VITE_GEMINI_RATE_LIMIT_RPS', '2'))
+    const maxConcurrent = parseInt(getEnvVar('VITE_GEMINI_MAX_CONCURRENT', '2'))
+    
     return {
       apiKey,
       model,
       temperature,
       topP,
       topK,
-      maxOutputTokens
-    };
+      maxOutputTokens,
+      rateLimitRps: isNaN(rateLimitRps) ? 2 : rateLimitRps,
+      maxConcurrent: isNaN(maxConcurrent) ? 2 : maxConcurrent,
+    } as any;
     
   } catch (error) {
     return {
@@ -95,7 +100,9 @@ export const createGeminiConfig = (): GeminiAPIConfig => {
       topP: DEFAULT_GEMINI_CONFIG.topP,
       topK: DEFAULT_GEMINI_CONFIG.topK,
       maxOutputTokens: DEFAULT_GEMINI_CONFIG.maxOutputTokens,
-    };
+      rateLimitRps: 2,
+      maxConcurrent: 2,
+    } as any;
   }
 };
 export const getGeminiConfig = () => createGeminiConfig();

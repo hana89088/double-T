@@ -5,6 +5,7 @@ import { DataProcessor } from '../../utils/dataProcessing/processor'
 import { useDataStore } from '../../stores/dataStore'
 import { computeChecksum } from '../../lib/utils'
 import { useStore } from '../../stores/appStore'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 export default function DataInput() {
@@ -14,6 +15,8 @@ export default function DataInput() {
   const [fileName, setFileName] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const { setCurrentDataset } = useStore()
+  const navigate = useNavigate()
+  const [isTransitioning, setIsTransitioning] = useState(false)
   const { setOriginalData, setProcessedData, setReady, setChecksums } = useDataStore()
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -135,10 +138,17 @@ export default function DataInput() {
     setChecksums({ input: checksumInput, processed: checksumProcessed })
     setReady(true)
     toast.success('Dataset saved and pre-processed successfully! Data is ready for analysis.')
+    setIsTransitioning(true)
+    setTimeout(() => {
+      navigate('/analysis')
+    }, 300)
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {isTransitioning && (
+        <div className="fixed inset-0 bg-white/60 pointer-events-none transition-opacity duration-300" />
+      )}
       <Navigation />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {isProcessing && (

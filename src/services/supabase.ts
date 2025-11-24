@@ -231,3 +231,15 @@ export async function fetchDashboardMetrics() {
     }
   }
 }
+
+export function subscribeToMetrics(onChange: () => void) {
+  if (!isSupabaseConfigured) return () => {}
+  // subscribe to inserts/updates/deletes on key tables
+  const channel = (supabase as any).channel('metrics-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'datasets' }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'analyses' }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'visualizations' }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'reports' }, onChange)
+    .subscribe()
+  return () => { try { (supabase as any).removeChannel(channel) } catch {} }
+}
