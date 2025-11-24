@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/assets/(.*)",
+      "dest": "/assets/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
+  "env": {
+    "VITE_GEMINI_API_KEY": "@gemini-api-key",
+    "VITE_GEMINI_MODEL_NAME": "@gemini-model-name",
+    "VITE_GEMINI_MAX_TOKENS": "@gemini-max-tokens",
+    "VITE_GEMINI_TEMPERATURE": "@gemini-temperature",
+    "VITE_GEMINI_TOP_P": "@gemini-top-p",
+    "VITE_GEMINI_TOP_K": "@gemini-top-k"
+  }
+}
