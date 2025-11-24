@@ -88,10 +88,14 @@ export const createGeminiConfig = (): GeminiAPIConfig => {
     };
     
   } catch (error) {
-    console.error('Error creating Gemini configuration:', error);
-    throw error;
+    return {
+      apiKey: '',
+      model: DEFAULT_GEMINI_CONFIG.model,
+      temperature: DEFAULT_GEMINI_CONFIG.temperature,
+      topP: DEFAULT_GEMINI_CONFIG.topP,
+      topK: DEFAULT_GEMINI_CONFIG.topK,
+      maxOutputTokens: DEFAULT_GEMINI_CONFIG.maxOutputTokens,
+    };
   }
 };
-
-// Export configuration instance
-export const geminiConfig = createGeminiConfig();
+export const getGeminiConfig = () => createGeminiConfig();
