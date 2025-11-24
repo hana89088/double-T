@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   BarChart,
   Bar,
@@ -16,6 +16,7 @@ import {
   ResponsiveContainer,
   Cell
 } from 'recharts'
+import { Brush } from 'recharts'
 import { ChartConfig } from '../../types'
 
 interface InteractiveChartProps {
@@ -28,6 +29,8 @@ const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'
 
 export default function InteractiveChart({ data, config, onConfigChange }: InteractiveChartProps) {
   const [selectedDataPoint, setSelectedDataPoint] = useState<any>(null)
+  const chartRef = useRef<HTMLDivElement>(null)
+  const largeData = data && data.length > 500
 
   const handleDataPointClick = (data: any) => {
     setSelectedDataPoint(data)
@@ -65,7 +68,9 @@ export default function InteractiveChart({ data, config, onConfigChange }: Inter
               onClick={handleDataPointClick}
               cursor="pointer"
               radius={[2, 2, 0, 0]}
+              isAnimationActive={!largeData}
             />
+            <Brush dataKey={config.xAxis} height={20} travellerWidth={10} stroke="#3B82F6" />
           </BarChart>
         )
 
@@ -96,7 +101,9 @@ export default function InteractiveChart({ data, config, onConfigChange }: Inter
               dot={{ fill: config.colors?.[0] || COLORS[0], strokeWidth: 2, r: 4 }}
               activeDot={{ r: 6, stroke: config.colors?.[0] || COLORS[0], strokeWidth: 2 }}
               onClick={handleDataPointClick}
+              isAnimationActive={!largeData}
             />
+            <Brush dataKey={config.xAxis} height={20} travellerWidth={10} stroke="#3B82F6" />
           </LineChart>
         )
 
@@ -171,7 +178,7 @@ export default function InteractiveChart({ data, config, onConfigChange }: Inter
   }
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full" ref={chartRef}>
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-gray-900">{config.title}</h3>
         {selectedDataPoint && (
@@ -202,6 +209,39 @@ export default function InteractiveChart({ data, config, onConfigChange }: Inter
           </div>
         </div>
       )}
+
+      <div className="mt-4 flex items-center justify-end">
+        <button
+          onClick={() => {
+            const svg = chartRef.current?.querySelector('svg')
+            if (!svg) return
+            const serializer = new XMLSerializer()
+            const svgStr = serializer.serializeToString(svg)
+            const canvas = document.createElement('canvas')
+            const img = new Image()
+            const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
+            const url = URL.createObjectURL(blob)
+            img.onload = () => {
+              canvas.width = img.width
+              canvas.height = img.height
+              const ctx = canvas.getContext('2d')!
+              ctx.drawImage(img, 0, 0)
+              URL.revokeObjectURL(url)
+              canvas.toBlob((png) => {
+                if (!png) return
+                const a = document.createElement('a')
+                a.href = URL.createObjectURL(png)
+                a.download = `${(config.title || 'chart').replace(/\s+/g,'_')}.png`
+                a.click()
+              }, 'image/png')
+            }
+            img.src = url
+          }}
+          className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200 text-sm"
+        >
+          Export PNG
+        </button>
+      </div>
     </div>
   )
 }
