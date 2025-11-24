@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import Navigation from '../../components/layout/Navigation'
 import { DataProcessor } from '../../utils/dataProcessing/processor'
+import { useDataStore } from '../../stores/dataStore'
+import { computeChecksum } from '../../lib/utils'
 import { useStore } from '../../stores/appStore'
 import { toast } from 'sonner'
 
@@ -12,6 +14,7 @@ export default function DataInput() {
   const [fileName, setFileName] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const { setCurrentDataset } = useStore()
+  const { setOriginalData, setProcessedData } = useDataStore()
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0]
@@ -88,8 +91,50 @@ export default function DataInput() {
       updated_at: new Date().toISOString()
     }
 
-    setCurrentDataset(dataset)
-    toast.success('Dataset saved successfully!')
+    // Pre-processing pipeline
+    const cleaned = DataProcessor.cleanData(uploadedData, {
+      removeDuplicates: true,
+      handleMissingValues: 'fill',
+      normalizeData: true,
+      convertDataTypes: true,
+    } as any)
+
+    const clipOutliers = (data: Record<string, any>[]) => {
+      if (data.length === 0) return data
+      const numericCols = Object.keys(data[0]).filter((k) =>
+        data.every((row) => row[k] === null || row[k] === undefined || row[k] === '' || typeof row[k] === 'number')
+      )
+      return data.map((row) => {
+        const newRow: any = { ...row }
+        numericCols.forEach((col) => {
+          const vals = data.map((r) => Number(r[col])).filter((v) => !isNaN(v))
+          if (vals.length < 3) return
+          const mean = vals.reduce((s, v) => s + v, 0) / vals.length
+          const variance = vals.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / vals.length
+          const sd = Math.sqrt(variance)
+          const min = mean - 3 * sd
+          const max = mean + 3 * sd
+          const v = Number(newRow[col])
+          if (!isNaN(v)) newRow[col] = Math.min(Math.max(v, min), max)
+        })
+        return newRow
+      })
+    }
+
+    const processed = clipOutliers(cleaned)
+
+    // Push to data store for Analysis/Visualization
+    setOriginalData(uploadedData)
+    setProcessedData(processed)
+
+    // Save dataset meta and checksum
+    setCurrentDataset({ ...dataset, schema: null, preview: processed.slice(0, 10) })
+
+    const checksumInput = computeChecksum(uploadedData)
+    const checksumProcessed = computeChecksum(processed)
+    console.info('Dataset checksums', { input: checksumInput, processed: checksumProcessed })
+
+    toast.success('Dataset saved and pre-processed successfully!')
   }
 
   return (
