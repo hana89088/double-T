@@ -195,3 +195,39 @@ export interface Database {
     }
   }
 }
+
+export const isSupabaseConfigured = Boolean(supabaseUrl) && Boolean(supabaseAnonKey)
+
+export async function fetchDashboardMetrics() {
+  if (!isSupabaseConfigured) {
+    return {
+      datasets: [],
+      analyses: [],
+      visualizations: [],
+      reports: [],
+    }
+  }
+  try {
+    const [ds, an, vz, rp] = await Promise.all([
+      (supabase as any).from('datasets').select('id,created_at').order('created_at', { ascending: true }),
+      (supabase as any).from('analyses').select('id,created_at').order('created_at', { ascending: true }),
+      (supabase as any).from('visualizations').select('id,created_at').order('created_at', { ascending: true }),
+      (supabase as any).from('reports').select('id,created_at').order('created_at', { ascending: true }),
+    ])
+    return {
+      datasets: ds.data || [],
+      analyses: an.data || [],
+      visualizations: vz.data || [],
+      reports: rp.data || [],
+    }
+  } catch (error) {
+    console.error('fetchDashboardMetrics error', error)
+    return {
+      datasets: [],
+      analyses: [],
+      visualizations: [],
+      reports: [],
+      error: error instanceof Error ? error.message : 'unknown-error',
+    }
+  }
+}

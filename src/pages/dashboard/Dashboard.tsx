@@ -1,22 +1,50 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useStore } from '../../stores/appStore'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import Navigation from '../../components/layout/Navigation'
-
-const mockData = [
-  { name: 'Jan', datasets: 12, analyses: 8 },
-  { name: 'Feb', datasets: 19, analyses: 15 },
-  { name: 'Mar', datasets: 15, analyses: 12 },
-  { name: 'Apr', datasets: 22, analyses: 18 },
-  { name: 'May', datasets: 28, analyses: 25 },
-  { name: 'Jun', datasets: 35, analyses: 32 },
-]
+import { fetchDashboardMetrics, isSupabaseConfigured } from '../../services/supabase'
 
 export default function Dashboard() {
   const { user } = useAuth()
-  const { datasets, analyses, visualizations, reports } = useStore()
+  const { datasets, analyses, visualizations, reports, setError } = useStore()
+  const [loading, setLoading] = useState(true)
+  const [metrics, setMetrics] = useState<{datasets:any[];analyses:any[]}>({datasets:[],analyses:[]})
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
+  const load = async () => {
+    setLoading(true)
+    setFetchError(null)
+    const res: any = await fetchDashboardMetrics()
+    if (res.error) {
+      setFetchError(res.error)
+      setError('Failed to load dashboard metrics')
+    }
+    setMetrics({ datasets: res.datasets || [], analyses: res.analyses || [] })
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  const chartData = useMemo(() => {
+    if (loading) return []
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    const countByMonth = (items: any[]) => {
+      const m = new Array(12).fill(0)
+      items.forEach((it) => {
+        const d = new Date(it.created_at)
+        const idx = d.getMonth()
+        if (!isNaN(idx)) m[idx]++
+      })
+      return m
+    }
+    const ds = countByMonth(metrics.datasets)
+    const an = countByMonth(metrics.analyses)
+    return months.map((name, i) => ({ name, datasets: ds[i], analyses: an[i] }))
+  }, [loading, metrics])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -130,16 +158,34 @@ export default function Dashboard() {
               Activity Overview
             </h3>
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={mockData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="datasets" fill="#3B82F6" name="Datasets" />
-                  <Bar dataKey="analyses" fill="#10B981" name="Analyses" />
-                </BarChart>
-              </ResponsiveContainer>
+              {loading ? (
+                <div className="w-full h-full flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+                </div>
+              ) : chartData.length === 0 ? (
+                <div className="w-full h-full flex items-center justify-center text-gray-500">
+                  No activity yet.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="datasets" fill="#3B82F6" name="Datasets" />
+                    <Bar dataKey="analyses" fill="#10B981" name="Analyses" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+            <div className="mt-4 flex items-center justify-between">
+              {fetchError ? (
+                <span className="text-sm text-red-600">Failed to load metrics: {fetchError}</span>
+              ) : (
+                <span className="text-sm text-gray-500">{isSupabaseConfigured ? 'Live data from Supabase' : 'Supabase not configured — showing empty state'}</span>
+              )}
+              <button onClick={load} className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200 text-sm">Refresh</button>
             </div>
           </div>
         </div>
