@@ -22,5 +22,5 @@
 
 ## Deploy
 - Push lên `master` → Vercel sẽ tự động redeploy.
-- Env cần thiết: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GEMINI_API_KEY`, `VITE_GEMINI_MODEL_NAME` (khuyến nghị `gemini-1.5-flash`).
+- Env cần thiết: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GEMINI_API_KEY`, `VITE_GEMINI_MODEL_NAME` (khuyến nghị `gemini-1.5-flash-latest`).
 - Cấu hình các biến môi trường này trực tiếp trong phần `Project Settings` → `Environment Variables` của Vercel. File `vercel.json` không còn tham chiếu tới Vercel Secrets nên sẽ không lỗi nếu chưa tạo secret.

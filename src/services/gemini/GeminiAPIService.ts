@@ -52,11 +52,11 @@ export class GeminiAPIService {
   private async initializeConnection(): Promise<void> {
     try {
       this.genAI = new GoogleGenerativeAI(this.config.apiKey);
-      let modelName = this.config.model || 'gemini-1.5-flash';
+      let modelName = this.config.model || 'gemini-1.5-flash-latest';
       try {
         this.model = this.genAI.getGenerativeModel({ model: modelName });
       } catch (_e) {
-        modelName = 'gemini-1.5-flash';
+        modelName = 'gemini-1.5-flash-latest';
         this.model = this.genAI.getGenerativeModel({ model: modelName });
       }
       
@@ -292,7 +292,7 @@ export class GeminiAPIService {
           totalTokens: Math.ceil(response.length / 2)
         },
         metadata: {
-          model: 'gemini-pro',
+          model: this.config.model || 'gemini-1.5-flash-latest',
           version: '1.0',
           timestamp: new Date().toISOString(),
           processingTime: Date.now() - this.metrics.lastRequestTimestamp
@@ -319,7 +319,7 @@ export class GeminiAPIService {
           details: { retryable: true }
         },
         metadata: {
-          model: 'gemini-pro',
+          model: this.config.model || 'gemini-1.5-flash-latest',
           version: '1.0',
           timestamp: new Date().toISOString(),
           processingTime: Date.now() - this.metrics.lastRequestTimestamp
@@ -436,7 +436,7 @@ export class GeminiAPIService {
             totalTokens: 0
           },
           metadata: {
-            model: this.config.model,
+            model: this.config.model || 'gemini-1.5-flash-latest',
             version: 'degraded',
             timestamp: new Date().toISOString(),
             processingTime: responseTime
