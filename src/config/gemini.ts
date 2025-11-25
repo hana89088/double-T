@@ -17,6 +17,7 @@ const validateApiKey = (apiKey: string): boolean => {
 
 const validateModelName = (modelName: string): boolean => {
   const validModels = [
+    'gemini-2.5-flash',
     'gemini-pro',
     'gemini-pro-vision',
     'gemini-1.5-pro',
@@ -31,7 +32,7 @@ const validateModelName = (modelName: string): boolean => {
 // Default configuration
 export const DEFAULT_GEMINI_CONFIG: GeminiAPIConfig = {
   apiKey: '',
-  model: 'gemini-1.5-flash-latest',
+  model: 'gemini-2.5-flash',
   temperature: 0.7,
   topP: 0.8,
   topK: 40,

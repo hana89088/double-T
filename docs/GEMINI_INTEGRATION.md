@@ -49,7 +49,7 @@ Comprehensive configuration management including:
 
 - **Environment Variables**:
   - `VITE_GEMINI_API_KEY`: Google AI API key
-- `VITE_GEMINI_MODEL_NAME`: Model selection (gemini-pro, gemini-1.5-pro, gemini-1.5-flash-latest, etc.)
+- `VITE_GEMINI_MODEL_NAME`: Model selection (gemini-2.5-flash, gemini-pro, gemini-1.5-pro, etc.)
   - `VITE_GEMINI_MAX_TOKENS`: Token limit configuration
   - `VITE_GEMINI_TEMPERATURE`: Response creativity setting
   - `VITE_GEMINI_RATE_LIMIT_RPS`: Rate limiting configuration
@@ -205,7 +205,7 @@ Create a `.env` file in your project root:
 ```bash
 # Gemini API Configuration
 VITE_GEMINI_API_KEY=your_gemini_api_key_here
-VITE_GEMINI_MODEL_NAME=gemini-1.5-flash-latest
+VITE_GEMINI_MODEL_NAME=gemini-2.5-flash
 VITE_GEMINI_MAX_TOKENS=8192
 VITE_GEMINI_TEMPERATURE=0.7
 VITE_GEMINI_TOP_P=0.8
