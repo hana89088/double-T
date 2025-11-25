@@ -1,10 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-const canInitSupabase = Boolean(supabaseUrl) && Boolean(supabaseAnonKey)
-export const supabase = canInitSupabase ? createClient(supabaseUrl, supabaseAnonKey) : undefined as unknown as ReturnType<typeof createClient>
+export const isSupabaseConfigured = Boolean(supabaseUrl) && Boolean(supabaseAnonKey)
+export const supabase = isSupabaseConfigured
+  ? createClient<Database>(supabaseUrl as string, supabaseAnonKey as string)
+  : undefined
 
 export type Json =
   | string
@@ -195,8 +197,6 @@ export interface Database {
     }
   }
 }
-
-export const isSupabaseConfigured = Boolean(supabaseUrl) && Boolean(supabaseAnonKey)
 
 export async function fetchDashboardMetrics() {
   if (!isSupabaseConfigured) {
