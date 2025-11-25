@@ -15,13 +15,15 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { user, setUser, setLoading, setError, setSuccessMessage } = useStore()
-  const [loading, setAuthLoading] = useState(true)
+  const { user, isLoading, setUser, setLoading, setError, setSuccessMessage } = useStore()
+  const [isAuthInitializing, setAuthInitializing] = useState(true)
   const isSupabaseConfigured = Boolean((supabase as any)) && Boolean((supabase as any).auth)
+
+  const loading = isAuthInitializing || isLoading
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
-      setAuthLoading(false)
+      setAuthInitializing(false)
       return
     }
 
@@ -41,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setUser(null)
       }
-      setAuthLoading(false)
+      setAuthInitializing(false)
     })
 
     return () => {
@@ -67,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error checking user:', error)
     } finally {
-      setAuthLoading(false)
+      setAuthInitializing(false)
     }
   }
 
@@ -202,7 +204,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {!isAuthInitializing && children}
     </AuthContext.Provider>
   )
 }
