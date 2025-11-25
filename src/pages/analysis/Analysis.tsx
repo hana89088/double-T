@@ -144,29 +144,34 @@ const Analysis: React.FC = () => {
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {correlations.map((correlation, index) => (
+          {correlations.map((correlation, index) => {
+            const coefficient = correlation.coefficient ?? correlation.correlation;
+            const pValue = correlation.pValue ?? correlation.p_value;
+
+            return (
             <Card key={index} className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium text-gray-900">
                   {correlation.field1} × {correlation.field2}
                 </h4>
                 <span className={`text-sm font-medium ${
-                  Math.abs(correlation.coefficient) >= 0.7 ? 'text-green-600' :
-                  Math.abs(correlation.coefficient) >= 0.4 ? 'text-yellow-600' : 'text-gray-600'
+                  Math.abs(coefficient) >= 0.7 ? 'text-green-600' :
+                  Math.abs(coefficient) >= 0.4 ? 'text-yellow-600' : 'text-gray-600'
                 }`}>
-                  {correlation.coefficient.toFixed(3)}
+                  {typeof coefficient === 'number' ? coefficient.toFixed(3) : 'N/A'}
                 </span>
               </div>
               <div className="text-sm text-gray-600">
                 <span className="capitalize">{correlation.strength}</span> correlation
-                {correlation.pValue && (
+                {typeof pValue === 'number' && (
                   <span className="ml-2">
-                    (p-value: {correlation.pValue.toFixed(4)})
+                    (p-value: {pValue.toFixed(4)})
                   </span>
                 )}
               </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
       </div>
     );

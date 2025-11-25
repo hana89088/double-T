@@ -18,12 +18,16 @@ export const findCorrelations = (data: any[]): any[] => {
       
       if (values1.length === values2.length && values1.length > 0) {
         const correlation = calculateCorrelation(values1, values2);
-        
+
         if (Math.abs(correlation) > 0.3) { // Only show meaningful correlations
+          const coefficient = correlation;
+
           correlations.push({
             field1,
             field2,
             correlation,
+            coefficient,
+            pValue: null,
             strength: Math.abs(correlation) > 0.7 ? 'strong' : Math.abs(correlation) > 0.5 ? 'moderate' : 'weak',
             direction: correlation > 0 ? 'positive' : 'negative'
           });
