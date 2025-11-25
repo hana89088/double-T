@@ -23,7 +23,8 @@ const validateModelName = (modelName: string): boolean => {
     'gemini-1.5-pro-latest',
     'gemini-1.5-flash',
     'gemini-1.5-flash-latest',
-    'gemini-1.0-pro'
+    'gemini-1.0-pro',
+    'gemini-2.5-flash'
   ];
   return validModels.includes(modelName);
 };
@@ -31,7 +32,7 @@ const validateModelName = (modelName: string): boolean => {
 // Default configuration
 export const DEFAULT_GEMINI_CONFIG: GeminiAPIConfig = {
   apiKey: '',
-  model: 'gemini-1.5-flash-latest',
+  model: 'gemini-2.5-flash',
   temperature: 0.7,
   topP: 0.8,
   topK: 40,
@@ -51,7 +52,7 @@ export const createGeminiConfig = (): GeminiAPIConfig => {
     
     // Validate model name
     if (!validateModelName(model)) {
-      throw new Error(`Invalid model name: ${model}. Valid models are: ${DEFAULT_GEMINI_CONFIG.model}, gemini-pro-vision, gemini-1.5-pro, gemini-1.5-pro-latest, gemini-1.5-flash, gemini-1.5-flash-latest, gemini-1.0-pro`);
+      throw new Error(`Invalid model name: ${model}. Valid models are: ${DEFAULT_GEMINI_CONFIG.model}, gemini-pro-vision, gemini-1.5-pro, gemini-1.5-pro-latest, gemini-1.5-flash, gemini-1.5-flash-latest, gemini-1.0-pro, gemini-2.5-flash`);
     }
     
     // Parse optional configuration values
