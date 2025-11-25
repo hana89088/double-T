@@ -1,112 +1,110 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell, ScatterChart, Scatter, ResponsiveContainer } from 'recharts';
-import { TrendingUp, BarChart3, PieChart as PieChartIcon, Activity, Download, Filter } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell, ScatterChart, Scatter, ResponsiveContainer } from 'recharts'
+import { TrendingUp, BarChart3, PieChart as PieChartIcon, Activity, Download } from 'lucide-react'
 import * as XLSX from 'xlsx'
-// lightweight PDF export for summary
 import JsPdfFallback from '@/utils/jsPdfFallback'
+import { useDataStore } from '@/stores/dataStore'
 
-interface MarketingData {
-  month: string;
-  revenue: number;
-  customers: number;
-  conversionRate: number;
-  marketingSpend: number;
-  roi: number;
-  category: string;
-  satisfaction: number;
+const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16', '#F97316']
+
+type DataRow = Record<string, any>
+
+const toNumberArray = (rows: DataRow[], key?: string) => {
+  if (!key) return []
+  return rows
+    .map((row) => Number(row[key]))
+    .filter((value) => !isNaN(value))
 }
-
-interface ChartData {
-  name: string;
-  value: number;
-  color?: string;
-}
-
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16', '#F97316'];
-
-const sampleMarketingData: MarketingData[] = [
-  { month: 'Jan', revenue: 125000, customers: 450, conversionRate: 3.2, marketingSpend: 15000, roi: 8.3, category: 'Digital', satisfaction: 4.2 },
-  { month: 'Feb', revenue: 138000, customers: 520, conversionRate: 3.8, marketingSpend: 18000, roi: 7.7, category: 'Digital', satisfaction: 4.3 },
-  { month: 'Mar', revenue: 142000, customers: 580, conversionRate: 4.1, marketingSpend: 20000, roi: 7.1, category: 'Social', satisfaction: 4.1 },
-  { month: 'Apr', revenue: 155000, customers: 640, conversionRate: 4.5, marketingSpend: 22000, roi: 7.0, category: 'Social', satisfaction: 4.4 },
-  { month: 'May', revenue: 168000, customers: 720, conversionRate: 4.8, marketingSpend: 25000, roi: 6.7, category: 'Email', satisfaction: 4.5 },
-  { month: 'Jun', revenue: 175000, customers: 780, conversionRate: 5.1, marketingSpend: 28000, roi: 6.3, category: 'Email', satisfaction: 4.6 },
-  { month: 'Jul', revenue: 182000, customers: 850, conversionRate: 5.3, marketingSpend: 30000, roi: 6.1, category: 'Content', satisfaction: 4.7 },
-  { month: 'Aug', revenue: 195000, customers: 920, conversionRate: 5.6, marketingSpend: 32000, roi: 6.1, category: 'Content', satisfaction: 4.8 },
-  { month: 'Sep', revenue: 188000, customers: 880, conversionRate: 5.4, marketingSpend: 29000, roi: 6.5, category: 'SEO', satisfaction: 4.6 },
-  { month: 'Oct', revenue: 205000, customers: 980, conversionRate: 5.8, marketingSpend: 35000, roi: 5.9, category: 'SEO', satisfaction: 4.9 },
-  { month: 'Nov', revenue: 218000, customers: 1050, conversionRate: 6.1, marketingSpend: 38000, roi: 5.7, category: 'Paid', satisfaction: 4.8 },
-  { month: 'Dec', revenue: 235000, customers: 1150, conversionRate: 6.5, marketingSpend: 42000, roi: 5.6, category: 'Paid', satisfaction: 5.0 }
-];
-
-const categoryData: ChartData[] = [
-  { name: 'Digital', value: 35, color: '#3B82F6' },
-  { name: 'Social', value: 25, color: '#10B981' },
-  { name: 'Email', value: 20, color: '#F59E0B' },
-  { name: 'Content', value: 12, color: '#EF4444' },
-  { name: 'SEO', value: 5, color: '#8B5CF6' },
-  { name: 'Paid', value: 3, color: '#06B6D4' }
-];
-
-const satisfactionData = [
-  { name: 'Jan', satisfaction: 4.2, customers: 450 },
-  { name: 'Feb', satisfaction: 4.3, customers: 520 },
-  { name: 'Mar', satisfaction: 4.1, customers: 580 },
-  { name: 'Apr', satisfaction: 4.4, customers: 640 },
-  { name: 'May', satisfaction: 4.5, customers: 720 },
-  { name: 'Jun', satisfaction: 4.6, customers: 780 },
-  { name: 'Jul', satisfaction: 4.7, customers: 850 },
-  { name: 'Aug', satisfaction: 4.8, customers: 920 },
-  { name: 'Sep', satisfaction: 4.6, customers: 880 },
-  { name: 'Oct', satisfaction: 4.9, customers: 980 },
-  { name: 'Nov', satisfaction: 4.8, customers: 1050 },
-  { name: 'Dec', satisfaction: 5.0, customers: 1150 }
-];
 
 export default function DataAnalysisReport() {
-  const [data, setData] = useState<MarketingData[]>(sampleMarketingData);
-  const [selectedChart, setSelectedChart] = useState<string>('all');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { processedData, ready } = useDataStore()
+  const normalizedData = useMemo(() => processedData.map((row, index) => ({ __index: index + 1, ...row })), [processedData])
+  const [selectedChart, setSelectedChart] = useState<string>('all')
+  const [error, setError] = useState<string | null>(null)
 
-  // Calculate key metrics
-  const totalRevenue = data.reduce((sum, item) => sum + item.revenue, 0);
-  const totalCustomers = data[data.length - 1]?.customers || 0;
-  const avgConversionRate = data.reduce((sum, item) => sum + item.conversionRate, 0) / data.length;
-  const avgROI = data.reduce((sum, item) => sum + item.roi, 0) / data.length;
-  const totalMarketingSpend = data.reduce((sum, item) => sum + item.marketingSpend, 0);
+  const columns = useMemo(() => (normalizedData[0] ? Object.keys(normalizedData[0]) : []), [normalizedData])
+  const numericColumns = useMemo(
+    () => columns.filter((col) => normalizedData.every((row) => row[col] === null || row[col] === undefined || row[col] === '' || !isNaN(Number(row[col])))),
+    [columns, normalizedData]
+  )
+  const categoryColumns = useMemo(
+    () => columns.filter((col) => normalizedData.some((row) => typeof row[col] === 'string')),
+    [columns, normalizedData]
+  )
+
+  const hasData = ready && normalizedData.length > 0
+  const primaryMetric = numericColumns[0]
+  const secondaryMetric = numericColumns[1] ?? numericColumns[0]
+  const categoryKey = categoryColumns[0]
+
+  useEffect(() => {
+    if (!hasData) {
+      setError('Chưa có dữ liệu thực tế. Vui lòng upload và xử lý dữ liệu trước khi xem báo cáo.')
+    } else {
+      setError(null)
+    }
+  }, [hasData])
+
+  const summarizeColumn = (key?: string, aggregator: (values: number[]) => number = (values) => values.reduce((s, v) => s + v, 0)) => {
+    if (!key) return 0
+    const values = toNumberArray(normalizedData, key)
+    if (values.length === 0) return 0
+    return aggregator(values)
+  }
+
+  const totalRecords = normalizedData.length
+  const totalFields = columns.length
+  const primaryTotal = summarizeColumn(primaryMetric)
+  const primaryAverage = summarizeColumn(primaryMetric, (values) => values.reduce((s, v) => s + v, 0) / values.length)
+  const secondaryAverage = summarizeColumn(secondaryMetric, (values) => values.reduce((s, v) => s + v, 0) / values.length)
+
+  const buildCategoryBreakdown = () => {
+    if (!categoryKey || !primaryMetric) return [] as { name: string; value: number }[]
+    const grouped = normalizedData.reduce((acc, row) => {
+      const name = row[categoryKey] ? String(row[categoryKey]) : 'Unknown'
+      const value = Number(row[primaryMetric])
+      if (!isNaN(value)) {
+        acc[name] = (acc[name] || 0) + value
+      }
+      return acc
+    }, {} as Record<string, number>)
+    return Object.entries(grouped).map(([name, value]) => ({ name, value }))
+  }
 
   const handleExportJSON = () => {
+    if (!hasData) return
     const reportData = {
       summary: {
-        totalRevenue,
-        totalCustomers,
-        avgConversionRate,
-        avgROI,
-        totalMarketingSpend
+        totalRecords,
+        totalFields,
+        primaryMetric,
+        secondaryMetric,
+        primaryTotal,
+        primaryAverage,
+        secondaryAverage,
       },
-      monthlyData: data,
-      categoryBreakdown: categoryData,
-      generatedAt: new Date().toISOString()
-    };
+      datasetPreview: normalizedData.slice(0, 50),
+      categoryBreakdown: categoryKey ? buildCategoryBreakdown() : [],
+      generatedAt: new Date().toISOString(),
+    }
 
-    const dataStr = JSON.stringify(reportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'marketing-analysis-report.json';
-    link.click();
-    URL.revokeObjectURL(url);
-  };
+    const dataStr = JSON.stringify(reportData, null, 2)
+    const dataBlob = new Blob([dataStr], { type: 'application/json' })
+    const url = URL.createObjectURL(dataBlob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'marketing-analysis-report.json'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
   const handleExportCSV = () => {
-    const rows = [['month','revenue','customers','conversionRate','marketingSpend','roi','category','satisfaction'],
-      ...data.map(d => [d.month,d.revenue,d.customers,d.conversionRate,d.marketingSpend,d.roi,d.category,d.satisfaction])]
-    const csv = rows.map(r => r.join(',')).join('\n')
+    if (!hasData) return
+    const rows = [columns, ...normalizedData.map((row) => columns.map((col) => row[col]))]
+    const csv = rows.map((r) => r.join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -117,7 +115,8 @@ export default function DataAnalysisReport() {
   }
 
   const handleExportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(data)
+    if (!hasData) return
+    const ws = XLSX.utils.json_to_sheet(normalizedData)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Analysis')
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
@@ -131,67 +130,77 @@ export default function DataAnalysisReport() {
   }
 
   const handleExportPDF = () => {
+    if (!hasData) return
     const doc = new JsPdfFallback({ unit: 'pt', format: 'a4' })
     doc.setFontSize(16)
     doc.text('Marketing Analysis Report', 40, 40)
     doc.setFontSize(12)
     const lines = [
       `Generated: ${new Date().toLocaleString()}`,
-      `Total Revenue: $${totalRevenue.toLocaleString()}`,
-      `Total Customers: ${totalCustomers.toLocaleString()}`,
-      `Avg Conversion Rate: ${avgConversionRate.toFixed(2)}%`,
-      `Avg ROI: ${avgROI.toFixed(2)}x`,
-      `Total Marketing Spend: $${totalMarketingSpend.toLocaleString()}`,
+      `Records: ${totalRecords.toLocaleString()}`,
+      `Fields: ${totalFields.toLocaleString()}`,
+      primaryMetric ? `${primaryMetric} (sum): ${primaryTotal.toLocaleString()}` : 'No numeric metric detected',
+      primaryMetric ? `${primaryMetric} (avg): ${primaryAverage.toFixed(2)}` : '',
     ]
     let y = 70
-    lines.forEach(l => { doc.text(l, 40, y); y += 18 })
+    lines.forEach((l) => {
+      if (l) {
+        doc.text(l, 40, y)
+        y += 18
+      }
+    })
     doc.save('marketing-analysis-report.pdf')
   }
 
   const renderBarChart = () => (
     <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={data}>
+      <BarChart data={normalizedData}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="month" />
+        <XAxis dataKey={categoryKey || '__index'} />
         <YAxis />
-        <Tooltip formatter={(value, name) => [
-          name === 'revenue' ? `$${value.toLocaleString()}` : 
-          name === 'conversionRate' ? `${value}%` : value.toLocaleString(),
-          name === 'revenue' ? 'Doanh thu' : 
-          name === 'customers' ? 'Khách hàng' : 
-          name === 'conversionRate' ? 'Tỷ lệ chuyển đổi' : name
-        ]} />
+        <Tooltip
+          formatter={(value, name) => [
+            typeof value === 'number' ? value.toLocaleString() : value,
+            name,
+          ]}
+        />
         <Legend />
-        <Bar dataKey="revenue" fill="#3B82F6" name="Doanh thu" />
-        <Bar dataKey="customers" fill="#10B981" name="Khách hàng" />
+        {primaryMetric && <Bar dataKey={primaryMetric} fill="#3B82F6" name={primaryMetric} />}
+        {secondaryMetric && secondaryMetric !== primaryMetric && (
+          <Bar dataKey={secondaryMetric} fill="#10B981" name={secondaryMetric} />
+        )}
       </BarChart>
     </ResponsiveContainer>
-  );
+  )
 
   const renderLineChart = () => (
     <ResponsiveContainer width="100%" height={300}>
-      <LineChart data={data}>
+      <LineChart data={normalizedData}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="month" />
+        <XAxis dataKey={categoryKey || '__index'} />
         <YAxis />
-        <Tooltip formatter={(value, name) => [
-          name === 'conversionRate' ? `${value}%` : 
-          name === 'roi' ? `${value}x` : value.toLocaleString(),
-          name === 'conversionRate' ? 'Tỷ lệ chuyển đổi' : 
-          name === 'roi' ? 'ROI' : name
-        ]} />
+        <Tooltip
+          formatter={(value, name) => [
+            typeof value === 'number' ? value.toLocaleString() : value,
+            name,
+          ]}
+        />
         <Legend />
-        <Line type="monotone" dataKey="conversionRate" stroke="#F59E0B" strokeWidth={3} name="Tỷ lệ chuyển đổi" />
-        <Line type="monotone" dataKey="roi" stroke="#EF4444" strokeWidth={3} name="ROI" />
+        {primaryMetric && (
+          <Line type="monotone" dataKey={primaryMetric} stroke="#F59E0B" strokeWidth={3} name={primaryMetric} />
+        )}
+        {secondaryMetric && secondaryMetric !== primaryMetric && (
+          <Line type="monotone" dataKey={secondaryMetric} stroke="#EF4444" strokeWidth={3} name={secondaryMetric} />
+        )}
       </LineChart>
     </ResponsiveContainer>
-  );
+  )
 
   const renderPieChart = () => (
     <ResponsiveContainer width="100%" height={300}>
       <PieChart>
         <Pie
-          data={categoryData}
+          data={buildCategoryBreakdown()}
           cx="50%"
           cy="50%"
           labelLine={false}
@@ -199,30 +208,34 @@ export default function DataAnalysisReport() {
           outerRadius={80}
           fill="#8884d8"
           dataKey="value"
+          nameKey="name"
         >
-          {categoryData.map((entry, index) => (
+          {buildCategoryBreakdown().map((entry, index) => (
             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
           ))}
         </Pie>
-        <Tooltip formatter={(value) => [`${value}%`, 'Tỷ lệ']} />
+        <Tooltip formatter={(value) => [`${value.toLocaleString?.() ?? value}`, 'Tỷ lệ']} />
       </PieChart>
     </ResponsiveContainer>
-  );
+  )
 
   const renderScatterChart = () => (
     <ResponsiveContainer width="100%" height={300}>
-      <ScatterChart data={satisfactionData}>
+      <ScatterChart data={normalizedData}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="satisfaction" name="Mức độ hài lòng" unit="/5" />
-        <YAxis dataKey="customers" name="Số khách hàng" />
-        <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={(value, name) => [
-          name === 'satisfaction' ? `${value}/5` : value.toLocaleString(),
-          name === 'satisfaction' ? 'Mức độ hài lòng' : 'Số khách hàng'
-        ]} />
-        <Scatter name="Mối quan hệ" dataKey="customers" fill="#8B5CF6" />
+        <XAxis dataKey={primaryMetric || '__index'} name={primaryMetric || 'Index'} />
+        <YAxis dataKey={secondaryMetric || '__index'} name={secondaryMetric || 'Value'} />
+        <Tooltip
+          cursor={{ strokeDasharray: '3 3' }}
+          formatter={(value, name) => [
+            typeof value === 'number' ? value.toLocaleString() : value,
+            name,
+          ]}
+        />
+        <Scatter name="Mối quan hệ" dataKey={secondaryMetric || primaryMetric} fill="#8B5CF6" />
       </ScatterChart>
     </ResponsiveContainer>
-  );
+  )
 
   if (error) {
     return (
@@ -231,7 +244,7 @@ export default function DataAnalysisReport() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       </div>
-    );
+    )
   }
 
   return (
@@ -240,63 +253,63 @@ export default function DataAnalysisReport() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Báo cáo Phân tích Marketing</h1>
-          <p className="text-gray-600">Phân tích chi tiết dữ liệu marketing với trực quan hóa chuyên sâu</p>
+          <p className="text-gray-600">Phân tích chi tiết dữ liệu marketing với trực quan hóa dựa trên dữ liệu bạn upload</p>
         </div>
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tổng Doanh thu</CardTitle>
+              <CardTitle className="text-sm font-medium">Số bản ghi</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalRevenue.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">+12.5% so với năm trước</p>
+              <div className="text-2xl font-bold">{totalRecords.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Dữ liệu thực từ lần upload gần nhất</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tổng Khách hàng</CardTitle>
+              <CardTitle className="text-sm font-medium">Số trường dữ liệu</CardTitle>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalCustomers.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">+156% so với năm trước</p>
+              <div className="text-2xl font-bold">{totalFields.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Tính trên cấu trúc dataset hiện tại</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tỷ lệ Chuyển đổi TB</CardTitle>
+              <CardTitle className="text-sm font-medium">Tổng giá trị ({primaryMetric || 'N/A'})</CardTitle>
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{avgConversionRate.toFixed(1)}%</div>
-              <p className="text-xs text-muted-foreground">+0.8% so với năm trước</p>
+              <div className="text-2xl font-bold">{primaryMetric ? primaryTotal.toLocaleString() : '--'}</div>
+              <p className="text-xs text-muted-foreground">Tổng hợp từ cột số đầu tiên</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">ROI Trung bình</CardTitle>
+              <CardTitle className="text-sm font-medium">Giá trị TB ({primaryMetric || 'N/A'})</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{avgROI.toFixed(1)}x</div>
-              <p className="text-xs text-muted-foreground">-0.5x so với năm trước</p>
+              <div className="text-2xl font-bold">{primaryMetric ? primaryAverage.toFixed(2) : '--'}</div>
+              <p className="text-xs text-muted-foreground">Tính trung bình trên dữ liệu upload</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Chi tiêu Marketing</CardTitle>
+              <CardTitle className="text-sm font-medium">Giá trị TB ({secondaryMetric || 'N/A'})</CardTitle>
               <PieChartIcon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalMarketingSpend.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">Tổng chi tiêu</p>
+              <div className="text-2xl font-bold">{secondaryMetric ? secondaryAverage.toFixed(2) : '--'}</div>
+              <p className="text-xs text-muted-foreground">Từ cột số tiếp theo (nếu có)</p>
             </CardContent>
           </Card>
         </div>
@@ -363,14 +376,17 @@ export default function DataAnalysisReport() {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <BarChart3 className="h-5 w-5 mr-2" />
-                  Doanh thu và Khách hàng theo tháng
+                  Phân bố giá trị theo nhóm
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {renderBarChart()}
+                {primaryMetric ? (
+                  renderBarChart()
+                ) : (
+                  <p className="text-sm text-gray-600">Không tìm thấy cột số để vẽ biểu đồ.</p>
+                )}
                 <p className="text-sm text-gray-600 mt-4">
-                  Biểu đồ cột thể hiện sự tăng trưởng doanh thu và số lượng khách hàng qua từng tháng.
-                  Xu hướng tăng trưởng ổn định cho thấy chiến lược marketing hiệu quả.
+                  Biểu đồ cột thể hiện phân bố giá trị dựa trên dữ liệu thực tế bạn đã tải lên.
                 </p>
               </CardContent>
             </Card>
@@ -382,14 +398,17 @@ export default function DataAnalysisReport() {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <TrendingUp className="h-5 w-5 mr-2" />
-                  Tỷ lệ chuyển đổi và ROI theo thời gian
+                  Xu hướng giá trị theo chuỗi thời gian/nhãn
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {renderLineChart()}
+                {primaryMetric ? (
+                  renderLineChart()
+                ) : (
+                  <p className="text-sm text-gray-600">Cần ít nhất một cột số để hiển thị xu hướng.</p>
+                )}
                 <p className="text-sm text-gray-600 mt-4">
-                  Biểu đồ đường thể hiện xu hướng tỷ lệ chuyển đổi và ROI. 
-                  Tỷ lệ chuyển đổi tăng đều đặn trong khi ROI có xu hướng giảm nhẹ do tăng chi tiêu marketing.
+                  Biểu đồ đường phản ánh trực tiếp số liệu đã upload, không sử dụng dữ liệu giả lập.
                 </p>
               </CardContent>
             </Card>
@@ -401,14 +420,17 @@ export default function DataAnalysisReport() {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <PieChartIcon className="h-5 w-5 mr-2" />
-                  Phân bố theo kênh Marketing
+                  Phân bố theo danh mục
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {renderPieChart()}
+                {categoryKey && primaryMetric ? (
+                  renderPieChart()
+                ) : (
+                  <p className="text-sm text-gray-600">Cần cột danh mục (text) và cột số để vẽ biểu đồ tròn.</p>
+                )}
                 <p className="text-sm text-gray-600 mt-4">
-                  Biểu đồ tròn thể hiện tỷ lệ phân bố chi tiêu marketing theo từng kênh. 
-                  Digital marketing chiếm tỷ trọng lớn nhất (35%), tiếp theo là Social Media (25%).
+                  Biểu đồ tròn tổng hợp trực tiếp từ giá trị trong dữ liệu đã upload.
                 </p>
               </CardContent>
             </Card>
@@ -420,14 +442,17 @@ export default function DataAnalysisReport() {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Activity className="h-5 w-5 mr-2" />
-                  Mối quan hệ: Mức độ hài lòng & Số khách hàng
+                  Mối quan hệ giữa các chỉ số
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {renderScatterChart()}
+                {primaryMetric && secondaryMetric ? (
+                  renderScatterChart()
+                ) : (
+                  <p className="text-sm text-gray-600">Cần ít nhất hai cột số để hiển thị biểu đồ phân tán.</p>
+                )}
                 <p className="text-sm text-gray-600 mt-4">
-                  Biểu đồ phân tán thể hiện mối tương quan giữa mức độ hài lòng khách hàng và số lượng khách hàng. 
-                  Xu hướng tích cực cho thấy chất lượng dịch vụ được cải thiện theo thời gian.
+                  Biểu đồ phân tán sử dụng chính dữ liệu bạn đã tải lên để so sánh các chỉ số.
                 </p>
               </CardContent>
             </Card>
@@ -444,34 +469,34 @@ export default function DataAnalysisReport() {
               <div>
                 <h4 className="font-semibold text-green-700 mb-2">Điểm mạnh:</h4>
                 <ul className="text-sm text-gray-700 space-y-1">
-                  <li>• Tăng trưởng doanh thu ổn định (88% trong năm)</li>
-                  <li>• Tỷ lệ chuyển đổi cải thiện liên tục (từ 3.2% lên 6.5%)</li>
-                  <li>• Mức độ hài lòng khách hàng cao và tăng đều</li>
-                  <li>• Chiến lược đa kênh marketing hiệu quả</li>
+                  <li>• Báo cáo phản ánh đúng dữ liệu bạn cung cấp, không dùng mẫu.</li>
+                  <li>• Các số liệu tổng và trung bình được tính trực tiếp từ dataset.</li>
+                  <li>• Xu hướng và phân bố được vẽ dựa trên cột số/cột danh mục thực tế.</li>
+                  <li>• Có thể xuất báo cáo (CSV, Excel, PDF, JSON) ngay từ dữ liệu đã xử lý.</li>
                 </ul>
               </div>
               <div>
                 <h4 className="font-semibold text-orange-700 mb-2">Cơ hội cải thiện:</h4>
                 <ul className="text-sm text-gray-700 space-y-1">
-                  <li>• ROI có xu hướng giảm cần tối ưu chi tiêu</li>
-                  <li>• Tăng đầu tư vào kênh SEO và Paid Ads hiệu quả</li>
-                  <li>• Tối ưu hóa chi phí marketing để cải thiện ROI</li>
-                  <li>• Tập trung vào các kênh có tỷ lệ chuyển đổi cao</li>
+                  <li>• Bổ sung nhãn thời gian hoặc danh mục để biểu đồ rõ ràng hơn.</li>
+                  <li>• Thêm nhiều cột số để so sánh đa chiều (bar/line/scatter).</li>
+                  <li>• Kiểm tra chất lượng dữ liệu đầu vào để giảm giá trị null/NaN.</li>
+                  <li>• Gắn nhãn ý nghĩa cho từng cột khi upload để diễn giải trực quan.</li>
                 </ul>
               </div>
             </div>
-            
+
             <div className="mt-6 p-4 bg-blue-50 rounded-lg">
               <h4 className="font-semibold text-blue-800 mb-2">Khuyến nghị chiến lược:</h4>
               <p className="text-sm text-blue-700">
-                Tiếp tục duy trì đà tăng trưởng hiện tại trong khi tập trung tối ưu hóa chi phí marketing. 
-                Đầu tư nhiều hơn vào các kênh có ROI cao như SEO và Email Marketing. 
-                Theo dõi chặt chẽ tỷ lệ chuyển đổi và mức độ hài lòng để đảm bảo tăng trưởng bền vững.
+                Duy trì quy trình upload & xử lý dữ liệu đều đặn để báo cáo luôn phản ánh dữ liệu mới nhất.
+                Ưu tiên chuẩn hóa tên cột (ví dụ: doanh_thu, chi_phi, kenh) để trực quan hóa chính xác hơn.
+                Theo dõi các chỉ số quan trọng trong dataset hiện tại thay vì dữ liệu mẫu cố định.
               </p>
             </div>
           </CardContent>
         </Card>
       </div>
     </div>
-  );
+  )
 }

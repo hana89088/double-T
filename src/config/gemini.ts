@@ -17,6 +17,7 @@ const validateApiKey = (apiKey: string): boolean => {
 
 const validateModelName = (modelName: string): boolean => {
   const validModels = [
+    'gemini-2.5-flash',
     'gemini-pro',
     'gemini-pro-vision',
     'gemini-1.5-pro',
