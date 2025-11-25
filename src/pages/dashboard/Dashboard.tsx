@@ -8,7 +8,17 @@ import { fetchDashboardMetrics, isSupabaseConfigured, subscribeToMetrics } from 
 
 export default function Dashboard() {
   const { user } = useAuth()
-  const { datasets, analyses, visualizations, reports, setError } = useStore()
+  const {
+    datasets,
+    analyses,
+    visualizations,
+    reports,
+    setDatasets,
+    setAnalyses,
+    setVisualizations,
+    setReports,
+    setError,
+  } = useStore()
   const [loading, setLoading] = useState(true)
   const [metrics, setMetrics] = useState<{datasets:any[];analyses:any[]}>({datasets:[],analyses:[]})
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -21,7 +31,16 @@ export default function Dashboard() {
       setFetchError(res.error)
       setError('Failed to load dashboard metrics')
     }
-    setMetrics({ datasets: res.datasets || [], analyses: res.analyses || [] })
+    const datasetsData = res.datasets || []
+    const analysesData = res.analyses || []
+    const visualizationsData = res.visualizations || []
+    const reportsData = res.reports || []
+
+    setMetrics({ datasets: datasetsData, analyses: analysesData })
+    setDatasets(datasetsData)
+    setAnalyses(analysesData)
+    setVisualizations(visualizationsData)
+    setReports(reportsData)
     setLoading(false)
   }
 
