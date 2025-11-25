@@ -6,7 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart,
 import { TrendingUp, BarChart3, PieChart as PieChartIcon, Activity, Download, Filter } from 'lucide-react';
 import * as XLSX from 'xlsx'
 // lightweight PDF export for summary
-import jsPDF from 'jspdf'
+import JsPdfFallback from '@/utils/jsPdfFallback'
 
 interface MarketingData {
   month: string;
@@ -131,7 +131,7 @@ export default function DataAnalysisReport() {
   }
 
   const handleExportPDF = () => {
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+    const doc = new JsPdfFallback({ unit: 'pt', format: 'a4' })
     doc.setFontSize(16)
     doc.text('Marketing Analysis Report', 40, 40)
     doc.setFontSize(12)
