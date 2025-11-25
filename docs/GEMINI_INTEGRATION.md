@@ -49,7 +49,6 @@ Comprehensive configuration management including:
 
 - **Environment Variables**:
   - `VITE_GEMINI_API_KEY`: Google AI API key
-- `VITE_GEMINI_MODEL_NAME`: Model selection (gemini-2.5-flash, gemini-pro, gemini-1.5-pro, etc.)
   - `VITE_GEMINI_MAX_TOKENS`: Token limit configuration
   - `VITE_GEMINI_TEMPERATURE`: Response creativity setting
   - `VITE_GEMINI_RATE_LIMIT_RPS`: Rate limiting configuration
