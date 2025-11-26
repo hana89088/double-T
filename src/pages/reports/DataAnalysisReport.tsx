@@ -3,10 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell, ScatterChart, Scatter, ResponsiveContainer } from 'recharts'
-import { TrendingUp, BarChart3, PieChart as PieChartIcon, Activity, Download } from 'lucide-react'
+import { TrendingUp, BarChart3, PieChart as PieChartIcon, Activity, Download, Loader2, Sparkles } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import JsPdfFallback from '@/utils/jsPdfFallback'
 import { useDataStore } from '@/stores/dataStore'
+import { GeminiAPIService } from '@/services/gemini/GeminiAPIService'
+import { getGeminiConfig } from '@/config/gemini'
+import { toast } from 'sonner'
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16', '#F97316']
 
@@ -24,6 +27,9 @@ export default function DataAnalysisReport() {
   const normalizedData = useMemo(() => processedData.map((row, index) => ({ __index: index + 1, ...row })), [processedData])
   const [selectedChart, setSelectedChart] = useState<string>('all')
   const [error, setError] = useState<string | null>(null)
+  const [infographicHtml, setInfographicHtml] = useState<string | null>(null)
+  const [infographicError, setInfographicError] = useState<string | null>(null)
+  const [isGeneratingInfographic, setIsGeneratingInfographic] = useState(false)
 
   const columns = useMemo(() => (normalizedData[0] ? Object.keys(normalizedData[0]) : []), [normalizedData])
   const numericColumns = useMemo(
@@ -152,6 +158,41 @@ export default function DataAnalysisReport() {
     doc.save('marketing-analysis-report.pdf')
   }
 
+  const handleGenerateInfographic = async () => {
+    if (!hasData) {
+      const message = 'Chưa có dữ liệu để tạo infographic. Vui lòng upload và xử lý dữ liệu trước.'
+      setInfographicError(message)
+      toast.error(message)
+      return
+    }
+
+    setIsGeneratingInfographic(true)
+    setInfographicError(null)
+
+    try {
+      const cfg = getGeminiConfig()
+      if (!cfg.apiKey) {
+        throw new Error('Gemini API key chưa được cấu hình để tạo infographic')
+      }
+
+      const service = new GeminiAPIService(cfg)
+      const infographic = await service.generateInfographicFromData(normalizedData.slice(0, 100), {
+        prompt: 'create HTML CSS infographic overview analysis data',
+        title: 'Infographic dữ liệu marketing dựa trên dữ liệu của bạn',
+        context: 'Tạo layout gọn gàng, responsive, dùng inline CSS, không dùng script hoặc tài nguyên ngoài.',
+      })
+
+      setInfographicHtml(infographic.html)
+      toast.success('Đã tạo infographic AI từ dữ liệu thực tế!')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Không thể tạo infographic từ Gemini'
+      setInfographicError(message)
+      toast.error(message)
+    } finally {
+      setIsGeneratingInfographic(false)
+    }
+  }
+
   const renderBarChart = () => (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={normalizedData}>
@@ -255,6 +296,52 @@ export default function DataAnalysisReport() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Báo cáo Phân tích Marketing</h1>
           <p className="text-gray-600">Phân tích chi tiết dữ liệu marketing với trực quan hóa dựa trên dữ liệu bạn upload</p>
         </div>
+
+        {/* AI Infographic generator */}
+        <Card className="mb-8 border-blue-100 shadow-sm">
+          <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-blue-600" />
+                <CardTitle className="text-lg">Tạo infographic tự động từ dữ liệu thực tế</CardTitle>
+              </div>
+              <p className="text-sm text-gray-600">
+                Gửi dữ liệu đã upload kèm prompt mặc định "create HTML CSS infographic overview analysis data" lên Gemini để nhận
+                lại HTML/CSS infographic.
+              </p>
+            </div>
+            <Button onClick={handleGenerateInfographic} disabled={isGeneratingInfographic || !hasData}>
+              {isGeneratingInfographic ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Đang tạo infographic...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Tạo infographic AI
+                </>
+              )}
+            </Button>
+          </CardHeader>
+          {(infographicError || infographicHtml) && (
+            <CardContent className="space-y-3">
+              {infographicError && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {infographicError}
+                </div>
+              )}
+              {infographicHtml && (
+                <div className="rounded-lg border border-blue-100 bg-white p-4 shadow-inner">
+                  <div
+                    className="prose max-w-none"
+                    dangerouslySetInnerHTML={{ __html: infographicHtml }}
+                  />
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">

@@ -214,6 +214,101 @@ export interface GeminiAPIConfig {
   retryConfig?: RetryConfig
 }
 
+export interface GeminiInfographicResult {
+  html: string
+  rawResponse: string
+  promptUsed: string
+  summary?: string
+}
+
+export interface GeminiStructuredReport {
+  report_type: string
+  audience?: string
+  delivery_format?: string
+  analysis_metadata?: Record<string, any>
+  security_compliance?: {
+    compliance?: string[]
+    data_sensitivity?: string
+  }
+  executive_summary?: {
+    title?: string
+    key_findings?: string[]
+    overall_recommendation?: string
+  }
+  performance_metrics?: {
+    title?: string
+    metrics_overview?: Array<{
+      metric: string
+      mean?: number
+      deviation?: number
+      trend?: string
+      interpretation?: string
+      pattern_status?: string
+    }>
+    kpi_analysis?: Record<string, { status?: string; details?: string }>
+  }
+  detailed_insights_patterns?: {
+    title?: string
+    insights?: Array<{
+      insight: string
+      description?: string
+      related_metrics?: string[]
+      correlation_strength?: string
+    }>
+  }
+  actionable_recommendations?: {
+    title?: string
+    recommendations?: Array<{
+      priority?: string
+      area?: string
+      action?: string
+      details?: string
+      expected_outcome?: string
+    }>
+  }
+  risk_assessment_mitigation?: {
+    title?: string
+    risks?: Array<{
+      risk: string
+      description?: string
+      mitigation_strategy?: string
+    }>
+  }
+  future_trend_predictions?: {
+    title?: string
+    predictions?: Array<{
+      trend: string
+      prediction?: string
+      drivers?: string[]
+    }>
+  }
+  data_quality_assessment?: {
+    title?: string
+    overall_score?: number
+    interpretation?: string
+    specific_observations?: string[]
+    recommendations?: string[]
+  }
+  suggested_visualizations_charts?: {
+    title?: string
+    charts?: Array<{
+      chart_type: string
+      purpose?: string
+      data_points?: string[]
+      x_axis?: string
+      y_axis?: string
+      description?: string
+    }>
+  }
+}
+
+export interface GeminiStructuredReportResult {
+  report: GeminiStructuredReport
+  rawResponse: string
+  promptUsed: string
+  summary: string
+}
+
 export interface RateLimitConfig {
   windowMs: number
   maxRequests: number
