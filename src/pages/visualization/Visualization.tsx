@@ -28,11 +28,14 @@ const correlation = (data: Record<string, any>[], a: string, b: string) => {
   return cov / (stdA * stdB)
 }
 
+type SourceChartConfig = ChartConfig & { source?: 'ai' | 'manual' | 'system' }
+
 export default function Visualization() {
   const { processedData, ready } = useDataStore()
   const preparedData = useMemo(() => processedData.map((row, index) => ({ __index: index + 1, ...row })), [processedData])
-  const [chartConfigs, setChartConfigs] = useState<ChartConfig[]>([])
+  const [chartConfigs, setChartConfigs] = useState<SourceChartConfig[]>([])
   const [activeChart, setActiveChart] = useState(0)
+  const [showAiOnly, setShowAiOnly] = useState(true)
   const [showHeatmap, setShowHeatmap] = useState(false)
   const [filters, setFilters] = useState<{ categoryColumn?: string; selectedCategories?: string[]; rangeColumn?: string; min?: number; max?: number }>({})
   const [aiReport, setAiReport] = useState<GeminiStructuredReport | null>(null)
@@ -52,7 +55,6 @@ export default function Visualization() {
 
   const defaultXAxis = categoryColumns[0] ?? '__index'
   const defaultYAxis = numericColumns[0] ?? '__index'
-  const secondaryYAxis = numericColumns[1] ?? numericColumns[0] ?? '__index'
 
   const filteredData = useMemo(() => {
     if (!hasData) return []
@@ -94,7 +96,7 @@ export default function Visualization() {
     const xAxisCandidate = suggestion.x_axis || categoryColumns[0] || '__index'
     const yAxisCandidate = suggestion.data_points?.find((p) => numericColumns.includes(p)) || numericColumns[0] || '__index'
 
-    const newConfig: ChartConfig = {
+    const newConfig: SourceChartConfig = {
       type,
       title: suggestion.purpose || suggestion.chart_type || 'AI Chart',
       xAxis: xAxisCandidate,
@@ -102,11 +104,13 @@ export default function Visualization() {
       colors: ['#2563EB', '#10B981', '#F59E0B'],
       showLegend: true,
       showGrid: true,
+      source: 'ai',
     }
 
     setChartConfigs((prev) => {
       const updated = [...prev, newConfig]
-      setActiveChart(updated.length - 1)
+      const filtered = showAiOnly ? updated.filter((cfg) => cfg.source === 'ai') : updated
+      setActiveChart(Math.max(0, filtered.length - 1))
       return updated
     })
     toast.success('Đã thêm chart từ gợi ý AI')
@@ -159,26 +163,21 @@ export default function Visualization() {
       setChartConfigs([
         {
           type: 'bar',
-          title: 'Bar Chart',
+          title: 'AI-ready Overview',
           xAxis: defaultXAxis,
           yAxis: defaultYAxis,
-          colors: ['#3B82F6'],
+          colors: ['#2563EB'],
           showLegend: true,
           showGrid: true,
-        },
-        {
-          type: 'line',
-          title: 'Line Chart',
-          xAxis: defaultXAxis,
-          yAxis: secondaryYAxis,
-          colors: ['#10B981'],
-          showLegend: true,
-          showGrid: true,
+          source: 'ai',
         },
       ])
       setActiveChart(0)
       return
     }
+
+    const needsAxisBackfill = chartConfigs.some((config) => !config.xAxis || !config.yAxis)
+    if (!needsAxisBackfill) return
 
     setChartConfigs((prev) =>
       prev.map((config) => ({
@@ -187,50 +186,108 @@ export default function Visualization() {
         yAxis: config.yAxis || defaultYAxis,
       }))
     )
-  }, [chartConfigs.length, defaultXAxis, defaultYAxis, hasData, secondaryYAxis])
+  }, [chartConfigs, defaultXAxis, defaultYAxis, hasData])
 
-  const updateChartConfig = (index: number, config: ChartConfig) => {
+  const visibleCharts = useMemo(() => {
+    if (!showAiOnly) return chartConfigs
+    const aiCharts = chartConfigs.filter((config) => config.source === 'ai')
+    return aiCharts.length ? aiCharts : chartConfigs
+  }, [chartConfigs, showAiOnly])
+
+  useEffect(() => {
+    if (activeChart >= visibleCharts.length) {
+      setActiveChart(visibleCharts.length > 0 ? visibleCharts.length - 1 : 0)
+    }
+  }, [activeChart, visibleCharts])
+
+  const updateChartConfig = (config: SourceChartConfig) => {
+    const targetConfig = visibleCharts[activeChart]
+    if (!targetConfig) return
+    const targetIndex = chartConfigs.findIndex((cfg) => cfg === targetConfig)
+    if (targetIndex === -1) return
     const newConfigs = [...chartConfigs]
-    newConfigs[index] = config
+    newConfigs[targetIndex] = config
     setChartConfigs(newConfigs)
   }
 
   const addChart = () => {
-    const newConfig: ChartConfig = {
+    const newConfig: SourceChartConfig = {
       type: 'bar',
-      title: 'New Chart',
+      title: 'New Manual Chart',
       xAxis: defaultXAxis,
       yAxis: defaultYAxis,
       colors: ['#F59E0B'],
       showLegend: true,
       showGrid: true,
+      source: 'manual',
     }
-    setChartConfigs([...chartConfigs, newConfig])
-    setActiveChart(chartConfigs.length)
+    setChartConfigs((prev) => {
+      const updated = [...prev, newConfig]
+      const filtered = showAiOnly ? updated.filter((cfg) => cfg.source === 'ai') : updated
+      setActiveChart(Math.max(0, filtered.length - 1))
+      return updated
+    })
   }
 
-  const removeChart = (index: number) => {
-    if (chartConfigs.length > 1) {
-      const newConfigs = chartConfigs.filter((_, i) => i !== index)
-      setChartConfigs(newConfigs)
-      if (activeChart >= newConfigs.length) {
-        setActiveChart(newConfigs.length - 1)
-      }
-    }
+  const removeChart = (config: SourceChartConfig) => {
+    if (chartConfigs.length <= 1) return
+
+    setChartConfigs((prev) => {
+      const newConfigs = prev.filter((item) => item !== config)
+      const filtered = showAiOnly ? newConfigs.filter((cfg) => cfg.source === 'ai') : newConfigs
+      const nextIndex = Math.max(0, Math.min(activeChart, filtered.length - 1))
+      setActiveChart(nextIndex)
+      return newConfigs
+    })
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Visualization Studio</h1>
-          <p className="mt-2 text-gray-600">
-            Create interactive charts and visualizations from your data.
-          </p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <div className="flex flex-col gap-3 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 p-6 text-white shadow-md">
+          <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+            <div>
+              <p className="text-sm uppercase tracking-wide text-blue-100">AI Dashboard</p>
+              <h1 className="text-3xl font-semibold leading-tight">Visualization Studio</h1>
+              <p className="mt-1 max-w-3xl text-sm text-blue-50">
+                Giao diện được rút gọn, ưu tiên biểu đồ do AI đề xuất để loại bỏ dashboard dư thừa và hiển thị tốt trên mọi thiết bị.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => setShowAiOnly((prev) => !prev)}
+                className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/30 backdrop-blur hover:bg-white/25"
+              >
+                <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                {showAiOnly ? 'Chỉ hiển thị dashboard AI' : 'Hiển thị tất cả dashboard'}
+              </button>
+              <button
+                onClick={handleGenerateAiReport}
+                disabled={isGeneratingAiReport || !hasData}
+                className="inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isGeneratingAiReport ? 'Đang tạo báo cáo...' : 'Tạo báo cáo AI JSON'}
+              </button>
+            </div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl bg-white/10 p-3 text-sm">
+              <p className="text-blue-100">Bước 1</p>
+              <p className="font-semibold">Sinh báo cáo AI và gợi ý biểu đồ</p>
+            </div>
+            <div className="rounded-xl bg-white/10 p-3 text-sm">
+              <p className="text-blue-100">Bước 2</p>
+              <p className="font-semibold">Dùng gợi ý để tạo dashboard hợp lệ</p>
+            </div>
+            <div className="rounded-xl bg-white/10 p-3 text-sm">
+              <p className="text-blue-100">Bước 3</p>
+              <p className="font-semibold">Điều chỉnh nhẹ, giữ bố cục gọn</p>
+            </div>
+          </div>
         </div>
 
-        <div className="mb-6 bg-white border border-blue-100 shadow rounded-lg p-4">
+        <div className="bg-white border border-blue-100 shadow rounded-2xl p-4 space-y-3">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">AI Visualization Brief (JSON)</h2>
@@ -238,13 +295,7 @@ export default function Visualization() {
                 Gemini trả về JSON chuẩn hóa (executive_summary, suggested_visualizations_charts, ...) để tái sử dụng cho Visualization Studio và Reports & Analytics.
               </p>
             </div>
-            <button
-              onClick={handleGenerateAiReport}
-              disabled={isGeneratingAiReport || !hasData}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 disabled:opacity-60"
-            >
-              {isGeneratingAiReport ? 'Đang tạo báo cáo...' : 'Tạo báo cáo AI JSON'}
-            </button>
+            <span className="text-xs text-blue-700 bg-blue-50 px-3 py-1 rounded-full font-semibold w-fit">Ưu tiên dashboard do AI đề xuất</span>
           </div>
           {(aiReportError || aiReport) && (
             <div className="mt-3 space-y-3">
@@ -280,10 +331,13 @@ export default function Visualization() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <p className="font-semibold text-slate-900">Gợi ý biểu đồ (có thể áp dụng trực tiếp)</p>
+                    <p className="font-semibold text-slate-900">Gợi ý biểu đồ (áp dụng trực tiếp)</p>
                     {aiReport.suggested_visualizations_charts?.charts?.map((chart, idx) => (
                       <div key={idx} className="border border-slate-200 rounded p-2 bg-white space-y-1">
-                        <p className="text-sm font-semibold text-slate-900">{chart.chart_type}</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-slate-900">{chart.chart_type}</p>
+                          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">AI</span>
+                        </div>
                         {chart.purpose && <p className="text-xs text-slate-600">{chart.purpose}</p>}
                         {chart.data_points?.length && (
                           <p className="text-xs text-slate-500">Dữ liệu: {chart.data_points.join(', ')}</p>
@@ -299,6 +353,9 @@ export default function Visualization() {
                         </button>
                       </div>
                     ))}
+                    {!aiReport.suggested_visualizations_charts?.charts?.length && (
+                      <p className="text-xs text-slate-500">Tạo báo cáo AI để nhận dashboard đề xuất.</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -321,7 +378,7 @@ export default function Visualization() {
                 <div className="bg-white shadow rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Charts</h3>
                   <div className="space-y-2">
-                    {chartConfigs.map((config, index) => (
+                    {visibleCharts.map((config, index) => (
                       <div
                         key={index}
                         className={`
@@ -331,14 +388,19 @@ export default function Visualization() {
                       `}
                         onClick={() => setActiveChart(index)}
                       >
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium truncate">
-                            {config.title}
-                          </span>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="text-sm font-medium truncate">
+                              {config.title}
+                            </span>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 whitespace-nowrap">
+                              {config.source === 'ai' ? 'AI' : 'Thủ công'}
+                            </span>
+                          </div>
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              removeChart(index)
+                              removeChart(config)
                             }}
                             className="text-red-500 hover:text-red-700 text-xs"
                           >
@@ -350,20 +412,25 @@ export default function Visualization() {
                         </span>
                       </div>
                     ))}
+                    {!visibleCharts.length && (
+                      <p className="text-xs text-slate-500">Chưa có dashboard hợp lệ. Hãy tạo báo cáo AI để thêm biểu đồ.</p>
+                    )}
                   </div>
-                  <button
-                    onClick={addChart}
-                    className="w-full mt-3 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-                  >
-                    + Add Chart
-                  </button>
+                  {!showAiOnly && (
+                    <button
+                      onClick={addChart}
+                      className="w-full mt-3 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                    >
+                      + Thêm chart thủ công
+                    </button>
+                  )}
                 </div>
 
                 {/* Chart Configuration */}
-                {chartConfigs[activeChart] && (
+                {visibleCharts[activeChart] && (
                   <ChartConfigPanel
-                    config={chartConfigs[activeChart]}
-                    onConfigChange={(config) => updateChartConfig(activeChart, config)}
+                    config={visibleCharts[activeChart]}
+                    onConfigChange={(config) => updateChartConfig(config)}
                     data={preparedData}
                     onFiltersChange={(f) => setFilters((prev) => ({ ...prev, ...f }))}
                   />
@@ -409,21 +476,22 @@ export default function Visualization() {
                     <Heatmap
                       data={heatmapData}
                       title="Correlation Matrix"
-                      width={800}
-                      height={500}
                     />
                   </div>
                 ) : (
                   <div className="space-y-8">
-                    {chartConfigs.map((config, index) => (
+                    {visibleCharts.map((config, index) => (
                       <div key={index} className="border-b border-gray-200 pb-8 last:border-b-0">
                         <InteractiveChart
                           data={filteredData}
                           config={config}
-                          onConfigChange={(newConfig) => updateChartConfig(index, newConfig)}
+                          onConfigChange={updateChartConfig}
                         />
                       </div>
                     ))}
+                    {!visibleCharts.length && (
+                      <p className="text-sm text-slate-500">Chưa có dashboard do AI đề xuất để hiển thị.</p>
+                    )}
                   </div>
                 )}
               </div>

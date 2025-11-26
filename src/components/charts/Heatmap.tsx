@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as d3 from 'd3'
 
 interface HeatmapProps {
@@ -17,15 +17,32 @@ export default function Heatmap({
   title = 'Data Heatmap'
 }: HeatmapProps) {
   const svgRef = useRef<SVGSVGElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [dimensions, setDimensions] = useState({ width, height })
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (!containerRef.current) return
+      const containerWidth = containerRef.current.clientWidth
+      const adjustedWidth = containerWidth ? containerWidth : width
+      const adjustedHeight = Math.max(280, Math.min(640, adjustedWidth * 0.6))
+      setDimensions({ width: adjustedWidth, height: adjustedHeight })
+    }
+
+    updateDimensions()
+    window.addEventListener('resize', updateDimensions)
+    return () => window.removeEventListener('resize', updateDimensions)
+  }, [width, height])
 
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0) return
 
+    const { width: finalWidth, height: finalHeight } = dimensions
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
 
-    const innerWidth = width - margin.left - margin.right
-    const innerHeight = height - margin.top - margin.bottom
+    const innerWidth = finalWidth - margin.left - margin.right
+    const innerHeight = finalHeight - margin.top - margin.bottom
 
     // Create scales
     const xScale = d3.scaleBand()
@@ -94,7 +111,7 @@ export default function Heatmap({
 
     // Add title
     svg.append('text')
-      .attr('x', width / 2)
+      .attr('x', finalWidth / 2)
       .attr('y', margin.top / 2)
       .attr('text-anchor', 'middle')
       .attr('font-size', '16px')
@@ -142,7 +159,7 @@ export default function Heatmap({
 
     const legend = svg.append('g')
       .attr('class', 'legend')
-      .attr('transform', `translate(${width - margin.right - legendWidth}, ${height - 20})`)
+      .attr('transform', `translate(${finalWidth - margin.right - legendWidth}, ${finalHeight - 20})`)
 
     const legendGradient = d3.range(legendWidth).map(i => 
       colorScale(legendScale.invert(i))
@@ -165,15 +182,15 @@ export default function Heatmap({
     return () => {
       tooltip.remove()
     }
-  }, [data, width, height, margin, title])
+  }, [data, dimensions, margin, title])
 
   return (
-    <div className="w-full h-full">
+    <div ref={containerRef} className="w-full h-full">
       <svg
         ref={svgRef}
-        width={width}
-        height={height}
-        className="border border-gray-200 rounded"
+        width={dimensions.width}
+        height={dimensions.height}
+        className="border border-gray-200 rounded w-full"
       />
     </div>
   )

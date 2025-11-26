@@ -95,6 +95,7 @@ export interface ChartConfig {
   colors?: string[]
   showLegend?: boolean
   showGrid?: boolean
+  source?: 'ai' | 'manual' | 'system'
 }
 
 export interface DataPoint {
