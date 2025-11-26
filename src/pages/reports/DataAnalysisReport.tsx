@@ -11,6 +11,7 @@ import { GeminiAPIService } from '@/services/gemini/GeminiAPIService'
 import { getGeminiConfig } from '@/config/gemini'
 import { GeminiStructuredReport } from '@/types/gemini'
 import { toast } from 'sonner'
+import { ChartConfig } from '@/types'
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16', '#F97316']
 
@@ -34,6 +35,9 @@ export default function DataAnalysisReport() {
   const [structuredReport, setStructuredReport] = useState<GeminiStructuredReport | null>(null)
   const [structuredReportError, setStructuredReportError] = useState<string | null>(null)
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
+  const [aiChartConfigs, setAiChartConfigs] = useState<ChartConfig[]>([])
+  const [aiChartError, setAiChartError] = useState<string | null>(null)
+  const [isGeneratingAiCharts, setIsGeneratingAiCharts] = useState(false)
 
   const columns = useMemo(() => (normalizedData[0] ? Object.keys(normalizedData[0]) : []), [normalizedData])
   const numericColumns = useMemo(
@@ -49,6 +53,15 @@ export default function DataAnalysisReport() {
   const primaryMetric = numericColumns[0]
   const secondaryMetric = numericColumns[1] ?? numericColumns[0]
   const categoryKey = categoryColumns[0]
+
+  const mapChartType = (chartType?: string): ChartConfig['type'] => {
+    if (!chartType) return 'bar'
+    const normalized = chartType.toLowerCase()
+    if (normalized.includes('line')) return 'line'
+    if (normalized.includes('pie') || normalized.includes('donut')) return 'pie'
+    if (normalized.includes('scatter')) return 'scatter'
+    return 'bar'
+  }
 
   useEffect(() => {
     if (!hasData) {
@@ -232,6 +245,71 @@ export default function DataAnalysisReport() {
     }
   }
 
+  const handleGenerateAiCharts = async () => {
+    if (!hasData) {
+      const message = 'Chưa có dữ liệu để Gemini đề xuất biểu đồ. Vui lòng upload và xử lý dữ liệu trước.'
+      setAiChartError(message)
+      toast.error(message)
+      return
+    }
+
+    setIsGeneratingAiCharts(true)
+    setAiChartError(null)
+
+    try {
+      const cfg = getGeminiConfig()
+      if (!cfg.apiKey) {
+        throw new Error('Gemini API key chưa được cấu hình để tạo biểu đồ AI')
+      }
+
+      const service = new GeminiAPIService(cfg)
+      const report = await service.generateStructuredReportFromData(normalizedData.slice(0, 120), {
+        reportType: 'chart_recommendations',
+        audience: 'analyst',
+        prompt:
+          'Return JSON only. Populate suggested_visualizations_charts.charts with chart_type, purpose, data_points, x_axis, y_axis based strictly on the provided dataset fields.',
+      })
+
+      const suggestions = report?.suggested_visualizations_charts?.charts || []
+      const mappedCharts: ChartConfig[] = suggestions
+        .map((chart) => {
+          const chartType = mapChartType(chart.chart_type)
+          const xAxisCandidate = chart.x_axis && columns.includes(chart.x_axis)
+            ? chart.x_axis
+            : categoryKey || '__index'
+          const yAxisCandidate =
+            chart.data_points?.find((point) => numericColumns.includes(point)) ||
+            (chart.y_axis && numericColumns.includes(chart.y_axis) ? chart.y_axis : primaryMetric || secondaryMetric)
+
+          if (!yAxisCandidate) return null
+
+          return {
+            type: chartType,
+            title: chart.purpose || chart.chart_type || 'Biểu đồ AI',
+            xAxis: xAxisCandidate,
+            yAxis: yAxisCandidate,
+            colors: ['#2563EB', '#10B981', '#F59E0B'],
+            showLegend: true,
+            showGrid: true,
+          }
+        })
+        .filter(Boolean) as ChartConfig[]
+
+      if (!mappedCharts.length) {
+        throw new Error('Gemini không trả về cấu hình biểu đồ hợp lệ từ dữ liệu hiện có')
+      }
+
+      setAiChartConfigs(mappedCharts)
+      toast.success('Đã tạo biểu đồ gợi ý từ Gemini!')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Không thể tạo biểu đồ từ Gemini'
+      setAiChartError(message)
+      toast.error(message)
+    } finally {
+      setIsGeneratingAiCharts(false)
+    }
+  }
+
   const renderReportSection = (title: string, content?: React.ReactNode) => {
     if (!content) return null
     return (
@@ -326,6 +404,100 @@ export default function DataAnalysisReport() {
       </ScatterChart>
     </ResponsiveContainer>
   )
+
+  const renderAiChart = (config: ChartConfig, index: number) => {
+    const xAxisKey = config.xAxis || categoryKey || '__index'
+    const yAxisKey = config.yAxis || primaryMetric
+
+    if (!yAxisKey) {
+      return (
+        <div className="text-sm text-gray-600">
+          Gemini chưa tìm thấy cột số phù hợp để vẽ biểu đồ.
+        </div>
+      )
+    }
+
+    if (config.type === 'pie') {
+      const pieData = normalizedData.reduce((acc: Record<string, number>, row) => {
+        const name = row[xAxisKey] ? String(row[xAxisKey]) : 'Unknown'
+        const value = Number(row[yAxisKey])
+        if (!isNaN(value)) {
+          acc[name] = (acc[name] || 0) + value
+        }
+        return acc
+      }, {})
+
+      const entries = Object.entries(pieData).map(([name, value]) => ({ name, value }))
+
+      if (!entries.length) {
+        return <p className="text-sm text-gray-600">Không đủ dữ liệu để vẽ biểu đồ tròn AI.</p>
+      }
+
+      return (
+        <ResponsiveContainer width="100%" height={300}>
+          <PieChart>
+            <Pie
+              data={entries}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              outerRadius={80}
+              label
+            >
+              {entries.map((_, idx) => (
+                <Cell key={`${index}-cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip formatter={(value) => [`${(value as number).toLocaleString?.() ?? value}`, 'Giá trị']} />
+          </PieChart>
+        </ResponsiveContainer>
+      )
+    }
+
+    if (config.type === 'line') {
+      return (
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={normalizedData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey={xAxisKey} />
+            <YAxis />
+            <Tooltip formatter={(value, name) => [typeof value === 'number' ? value.toLocaleString() : value, name]} />
+            <Legend />
+            <Line type="monotone" dataKey={yAxisKey} stroke="#2563EB" strokeWidth={3} name={yAxisKey} />
+          </LineChart>
+        </ResponsiveContainer>
+      )
+    }
+
+    if (config.type === 'scatter') {
+      return (
+        <ResponsiveContainer width="100%" height={300}>
+          <ScatterChart data={normalizedData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey={xAxisKey} name={xAxisKey} />
+            <YAxis dataKey={yAxisKey} name={yAxisKey} />
+            <Tooltip formatter={(value, name) => [typeof value === 'number' ? value.toLocaleString() : value, name]} />
+            <Legend />
+            <Scatter name={config.title} dataKey={yAxisKey} fill="#10B981" />
+          </ScatterChart>
+        </ResponsiveContainer>
+      )
+    }
+
+    return (
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={normalizedData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey={xAxisKey} />
+          <YAxis />
+          <Tooltip formatter={(value, name) => [typeof value === 'number' ? value.toLocaleString() : value, name]} />
+          <Legend />
+          <Bar dataKey={yAxisKey} fill="#2563EB" name={yAxisKey} />
+        </BarChart>
+      </ResponsiveContainer>
+    )
+  }
 
   if (error) {
     return (
@@ -592,8 +764,49 @@ export default function DataAnalysisReport() {
               <Download className="h-4 w-4 mr-2" />
               JSON
             </Button>
+            <Button onClick={handleGenerateAiCharts} variant="default" disabled={isGeneratingAiCharts}>
+              {isGeneratingAiCharts ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4 mr-2" />
+              )}
+              Biểu đồ AI
+            </Button>
           </div>
         </div>
+
+        {aiChartError && (
+          <div className="mb-6 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {aiChartError}
+          </div>
+        )}
+
+        {aiChartConfigs.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="h-5 w-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Biểu đồ do Gemini đề xuất</h3>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {aiChartConfigs.map((config, index) => (
+                <Card key={`${config.title}-${index}`}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span>{config.title}</span>
+                      <span className="text-xs text-gray-500">{config.type.toUpperCase()}</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {renderAiChart(config, index)}
+                    <p className="text-sm text-gray-600 mt-4">
+                      Gemini lựa chọn trục {config.xAxis} và giá trị {config.yAxis} dựa trên dữ liệu thực tế.
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
