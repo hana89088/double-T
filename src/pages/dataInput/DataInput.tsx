@@ -1,12 +1,44 @@
 import { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
-import Navigation from '../../components/layout/Navigation'
-import { DataProcessor } from '../../utils/dataProcessing/processor'
-import { useDataStore } from '../../stores/dataStore'
-import { computeChecksum } from '../../lib/utils'
-import { useStore } from '../../stores/appStore'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import { Edit3, FileSpreadsheet, Upload, Wand2 } from 'lucide-react'
+
+import Navigation from '../../components/layout/Navigation'
+import { DataProcessor } from '../../utils/dataProcessing/processor'
+import { computeChecksum } from '../../lib/utils'
+import { useStore } from '../../stores/appStore'
+import { useDataStore } from '../../stores/dataStore'
+
+const clipOutliers = (data: Record<string, any>[]) => {
+  if (data.length === 0) return data
+
+  const numericColumns = Object.keys(data[0]).filter((key) =>
+    data.every((row) => row[key] === null || row[key] === undefined || row[key] === '' || typeof row[key] === 'number')
+  )
+
+  return data.map((row) => {
+    const newRow: Record<string, unknown> = { ...row }
+
+    numericColumns.forEach((col) => {
+      const values = data.map((r) => Number(r[col])).filter((value) => !isNaN(value))
+      if (values.length < 3) return
+
+      const mean = values.reduce((sum, value) => sum + value, 0) / values.length
+      const variance = values.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / values.length
+      const standardDeviation = Math.sqrt(variance)
+      const min = mean - 3 * standardDeviation
+      const max = mean + 3 * standardDeviation
+      const value = Number(newRow[col])
+
+      if (!isNaN(value)) {
+        newRow[col] = Math.min(Math.max(value, min), max)
+      }
+    })
+
+    return newRow
+  })
+}
 
 export default function DataInput() {
   const [textData, setTextData] = useState('')
@@ -28,7 +60,7 @@ export default function DataInput() {
 
     try {
       let data: Record<string, any>[] = []
-      
+
       if (file.name.endsWith('.csv')) {
         data = await DataProcessor.parseCSV(file)
       } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
@@ -67,8 +99,8 @@ export default function DataInput() {
     try {
       const data = DataProcessor.parseText(textData)
       setUploadedData(data)
-      setFileName('Text Input')
-      toast.success(`Successfully parsed ${data.length} data points`)
+      setFileName('Manual input')
+      toast.success(`Parsed ${data.length} data points`)
     } catch (error) {
       toast.error(`Error parsing text data: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
@@ -80,21 +112,23 @@ export default function DataInput() {
       return
     }
 
-    // Store the dataset in the global state
     const dataset = {
       id: Date.now().toString(),
-      user_id: 'current-user', // This will be replaced with actual user ID from auth
+      user_id: 'current-user',
       name: fileName,
-      format: fileName.endsWith('.csv') ? 'csv' as const : fileName.endsWith('.xlsx') || fileName.endsWith('.xls') ? 'excel' as const : 'text' as const,
+      format: fileName.endsWith('.csv')
+        ? 'csv' as const
+        : fileName.endsWith('.xlsx') || fileName.endsWith('.xls')
+          ? 'excel' as const
+          : 'text' as const,
       schema: null,
       row_count: uploadedData.length,
-      preview: uploadedData.slice(0, 10), // Store first 10 rows as preview
+      preview: uploadedData.slice(0, 10),
       file_path: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
 
-    // Pre-processing pipeline
     const cleaned = DataProcessor.cleanData(uploadedData, {
       removeDuplicates: true,
       handleMissingValues: 'fill',
@@ -102,35 +136,10 @@ export default function DataInput() {
       convertDataTypes: true,
     } as any)
 
-    const clipOutliers = (data: Record<string, any>[]) => {
-      if (data.length === 0) return data
-      const numericCols = Object.keys(data[0]).filter((k) =>
-        data.every((row) => row[k] === null || row[k] === undefined || row[k] === '' || typeof row[k] === 'number')
-      )
-      return data.map((row) => {
-        const newRow: any = { ...row }
-        numericCols.forEach((col) => {
-          const vals = data.map((r) => Number(r[col])).filter((v) => !isNaN(v))
-          if (vals.length < 3) return
-          const mean = vals.reduce((s, v) => s + v, 0) / vals.length
-          const variance = vals.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / vals.length
-          const sd = Math.sqrt(variance)
-          const min = mean - 3 * sd
-          const max = mean + 3 * sd
-          const v = Number(newRow[col])
-          if (!isNaN(v)) newRow[col] = Math.min(Math.max(v, min), max)
-        })
-        return newRow
-      })
-    }
-
     const processed = clipOutliers(cleaned)
 
-    // Push to data store for Analysis/Visualization
     setOriginalData(uploadedData)
     setProcessedData(processed)
-
-    // Save dataset meta and checksum
     setCurrentDataset({ ...dataset, schema: null, preview: processed.slice(0, 10) })
 
     const checksumInput = computeChecksum(uploadedData)
@@ -145,193 +154,225 @@ export default function DataInput() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50 text-slate-900">
       {isTransitioning && (
         <div className="fixed inset-0 bg-white/60 pointer-events-none transition-opacity duration-300" />
       )}
+
       <Navigation />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+      <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
         {isProcessing && (
-          <div className="fixed inset-0 bg-black/30 z-40 flex items-center justify-center">
-            <div className="bg-white rounded-lg shadow p-6 flex items-center gap-3">
-              <span className="animate-spin inline-block w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full" />
-              <span className="text-sm text-gray-700">Đang xử lý dữ liệu…</span>
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40">
+            <div className="flex items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-xl ring-1 ring-slate-200">
+              <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+              <span className="text-sm text-slate-700">Đang xử lý dữ liệu…</span>
             </div>
           </div>
         )}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Data Input</h1>
-          <p className="mt-2 text-gray-600">
-            Upload your marketing data or enter it manually to get started with analysis.
-          </p>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* File Upload */}
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Upload File</h2>
-            <div
-              {...getRootProps()}
-              className={`
-                border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
-                ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'}
-              `}
-            >
-              <input {...getInputProps()} />
-              <div className="space-y-4">
-                <div className="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center mx-auto">
-                  <span className="text-gray-600 text-xl">📁</span>
-                </div>
-                {isDragActive ? (
-                  <p className="text-blue-600 font-medium">Drop the file here...</p>
-                ) : (
-                  <div>
-                    <p className="text-gray-600">
-                      Drag and drop your CSV or Excel file here, or click to select
-                    </p>
-                    <p className="text-sm text-gray-500 mt-2">
-                      Supported formats: CSV, XLSX, XLS
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {fileName && (
-              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
-                <p className="text-green-800 text-sm">
-                  <strong>File:</strong> {fileName}
-                </p>
-                {uploadedData.length > 0 && (
-                  <p className="text-green-700 text-sm mt-1">
-                    <strong>Rows:</strong> {uploadedData.length}
-                  </p>
-                )}
-              </div>
-            )}
+        <header className="flex flex-col gap-2">
+          <div className="inline-flex w-fit items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+            <Wand2 className="h-4 w-4" />
+            Simplified upload flow
           </div>
-
-          {/* Text Input */}
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Manual Input</h2>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="text-data" className="block text-sm font-medium text-gray-700 mb-2">
-                  Enter your data
-                </label>
-                <textarea
-                  id="text-data"
-                  rows={8}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter your data here...&#10;You can paste CSV data or simple text.&#10;Example:&#10;Name,Age,Sales&#10;John,25,1000&#10;Jane,30,1500"
-                  value={textData}
-                  onChange={(e) => setTextData(e.target.value)}
-                />
-              </div>
-              <button
-                onClick={handleTextSubmit}
-                disabled={isProcessing}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Parse Text Data
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Analysis Objective */}
-        <div className="bg-white shadow rounded-lg p-6 mt-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Analysis Objective</h2>
-          <div className="space-y-4">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
-              <label htmlFor="objective" className="block text-sm font-medium text-gray-700 mb-2">
-                What would you like to analyze?
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Data Input</h1>
+              <p className="mt-1 text-sm text-slate-600">
+                Bring your marketing data in via upload or quick paste. We keep only the essentials on screen so you can focus on the next step.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200">
+              <div className="rounded-lg bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
+                Auto-clean ready
+              </div>
+              <div className="text-xs text-slate-500">Outlier handling, type fixes, missing values</div>
+            </div>
+          </div>
+        </header>
+
+        <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.3fr_1fr]">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Upload className="h-5 w-5 text-blue-600" />
+                  <h2 className="text-lg font-semibold">Upload file</h2>
+                </div>
+                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">CSV · Excel</span>
+              </div>
+
+              <div
+                {...getRootProps()}
+                className={`group flex cursor-pointer flex-col gap-3 rounded-xl border border-dashed p-6 text-center transition-colors ${
+                  isDragActive ? 'border-blue-400 bg-blue-50' : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <input {...getInputProps()} />
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-700">
+                  <FileSpreadsheet className="h-6 w-6" />
+                </div>
+                <p className="text-sm font-medium text-slate-800">
+                  {isDragActive ? 'Thả tệp vào đây' : 'Kéo thả hoặc chọn tệp từ máy của bạn'}
+                </p>
+                <p className="text-xs text-slate-500">Hỗ trợ .csv, .xlsx, .xls</p>
+              </div>
+
+              {fileName && (
+                <div className="mt-4 flex items-center justify-between rounded-xl bg-green-50 px-4 py-3 text-sm text-green-800 ring-1 ring-green-100">
+                  <div className="flex flex-col">
+                    <span className="font-medium">{fileName}</span>
+                    {uploadedData.length > 0 && <span className="text-green-700">{uploadedData.length} rows detected</span>}
+                  </div>
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-green-700">Ready</span>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+              <div className="mb-4 flex items-center gap-2">
+                <Edit3 className="h-5 w-5 text-indigo-600" />
+                <h2 className="text-lg font-semibold">Paste data</h2>
+              </div>
+
+              <label htmlFor="text-data" className="sr-only">
+                Paste your data
+              </label>
+              <textarea
+                id="text-data"
+                rows={8}
+                className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-slate-800 shadow-inner outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                placeholder="Dán dữ liệu CSV hoặc từng dòng văn bản.\nVí dụ:\nName,Age,Sales\nJohn,25,1000\nJane,30,1500"
+                value={textData}
+                onChange={(e) => setTextData(e.target.value)}
+              />
+
+              <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+                <span>Tip: Giữ dữ liệu gọn để xem trước rõ ràng hơn.</span>
+                <button
+                  type="button"
+                  onClick={handleTextSubmit}
+                  disabled={isProcessing}
+                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Wand2 className="h-4 w-4" /> Parse text
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Wand2 className="h-5 w-5 text-emerald-600" />
+                  <h2 className="text-lg font-semibold">Analysis objective</h2>
+                </div>
+                <span className="text-xs text-slate-500">Tùy chọn nhưng hữu ích</span>
+              </div>
+
+              <label htmlFor="objective" className="sr-only">
+                Analysis objective
               </label>
               <textarea
                 id="objective"
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Describe your analysis goals...&#10;Example: I want to understand the relationship between marketing spend and sales performance."
+                rows={4}
+                className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm text-slate-800 shadow-inner outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                placeholder="Ví dụ: 'Phân tích tương quan giữa ngân sách marketing và doanh thu theo kênh'."
                 value={objective}
                 onChange={(e) => setObjective(e.target.value)}
               />
+              <p className="mt-2 text-xs text-slate-500">Thêm bối cảnh giúp AI gợi ý insight chính xác hơn.</p>
             </div>
-            <p className="text-sm text-gray-500">
-              This helps us provide more targeted insights and recommendations.
-            </p>
-          </div>
-        </div>
 
-        {/* Data Preview */}
-        {uploadedData.length > 0 && (
-          <div className="bg-white shadow rounded-lg p-6 mt-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Data Preview</h2>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {Object.keys(uploadedData[0]).map((key) => (
-                      <th
-                        key={key}
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        {key}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {uploadedData.slice(0, 5).map((row, index) => (
-                    <tr key={index}>
-                      {Object.keys(uploadedData[0]).map((key) => (
-                        <td
-                          key={key}
-                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
-                        >
-                          {String(row[key]).length > 20
-                            ? `${String(row[key]).substring(0, 20)}...`
-                            : String(row[key])}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {uploadedData.length > 5 && (
-              <p className="text-sm text-gray-500 mt-4">
-                Showing first 5 rows of {uploadedData.length} total rows.
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex justify-end space-x-4 mt-8">
-          <button
-            onClick={() => window.history.back()}
-            className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-          >
-            Back
-          </button>
-          <button
-            onClick={handleContinue}
-            disabled={uploadedData.length === 0 || isProcessing}
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Continue to Analysis
-          </button>
-        </div>
-
-        <div className="mt-4">
-          {uploadedData.length > 0 && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-green-800">Data uploaded. Click "Continue to Analysis" to finalize preprocessing.</span>
-                <a href="/analysis" className="text-sm text-blue-600 hover:text-blue-800">Go to Analysis</a>
+            <div className="rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-600 p-6 text-white shadow-md">
+              <h3 className="text-lg font-semibold">Trạng thái tập dữ liệu</h3>
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-xl bg-white/10 px-3 py-2">
+                  <p className="text-xs text-indigo-100">Nguồn</p>
+                  <p className="font-semibold">{fileName || 'Chưa có tệp'}</p>
+                </div>
+                <div className="rounded-xl bg-white/10 px-3 py-2">
+                  <p className="text-xs text-indigo-100">Số dòng</p>
+                  <p className="font-semibold">{uploadedData.length || '—'}</p>
+                </div>
+                <div className="rounded-xl bg-white/10 px-3 py-2">
+                  <p className="text-xs text-indigo-100">Mục tiêu phân tích</p>
+                  <p className="line-clamp-2 font-semibold">
+                    {objective.trim() ? objective : 'Bổ sung để có khuyến nghị rõ hơn'}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-white/10 px-3 py-2">
+                  <p className="text-xs text-indigo-100">Tiến trình</p>
+                  <p className="font-semibold">{uploadedData.length > 0 ? 'Sẵn sàng tiền xử lý' : 'Chờ dữ liệu'}</p>
+                </div>
               </div>
             </div>
-          )}
+          </div>
+        </section>
+
+        {uploadedData.length > 0 && (
+          <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Preview</h2>
+                <p className="text-xs text-slate-500">Chỉ hiển thị 5 dòng đầu để tránh quá tải.</p>
+              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{uploadedData.length} rows</span>
+            </div>
+            <div className="overflow-hidden rounded-xl border border-slate-200">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      {Object.keys(uploadedData[0]).map((key) => (
+                        <th key={key} className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {key}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {uploadedData.slice(0, 5).map((row, index) => (
+                      <tr key={index}>
+                        {Object.keys(uploadedData[0]).map((key) => (
+                          <td key={key} className="px-4 py-2 text-slate-800">
+                            {String(row[key]).length > 36 ? `${String(row[key]).substring(0, 33)}…` : String(row[key])}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
+        <div className="flex flex-col justify-between gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:flex-row sm:items-center">
+          <div className="text-sm text-slate-600">
+            {uploadedData.length > 0
+              ? 'Dữ liệu đã sẵn sàng. Nhấn Continue để tiền xử lý và chuyển sang phân tích.'
+              : 'Tải lên hoặc dán dữ liệu để bắt đầu.'}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => window.history.back()}
+              className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              Quay lại
+            </button>
+            <button
+              type="button"
+              onClick={handleContinue}
+              disabled={uploadedData.length === 0 || isProcessing}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Tiếp tục phân tích
+            </button>
+          </div>
         </div>
       </div>
     </div>
