@@ -127,6 +127,59 @@ export const GeminiReportGenerator: React.FC<GeminiReportGeneratorProps> = ({
     [processedData, statisticalResults, patterns, correlations]
   );
 
+  const formatResponseLines = useCallback((value: unknown, depth = 0): string[] => {
+    const indent = '  '.repeat(depth);
+
+    if (Array.isArray(value)) {
+      return value.flatMap(item => {
+        const lines = formatResponseLines(item, depth + 1);
+        if (lines.length === 0) return [];
+        const [first, ...rest] = lines;
+        return [`${indent}- ${first.trim()}`, ...rest.map(line => `${indent}  ${line}`)];
+      });
+    }
+
+    if (value && typeof value === 'object') {
+      return Object.entries(value as Record<string, unknown>).flatMap(([key, val]) => {
+        const lines = formatResponseLines(val, depth + 1);
+
+        if (lines.length === 0) {
+          return [`${indent}${key}:`];
+        }
+
+        const [first, ...rest] = lines;
+        return [`${indent}${key}: ${first.trim()}`, ...rest.map(line => `${indent}  ${line}`)];
+      });
+    }
+
+    if (value === null || value === undefined) {
+      return [`${indent}${String(value)}`];
+    }
+
+    return [`${indent}${String(value)}`];
+  }, []);
+
+  const readableResponse = useMemo(() => {
+    if (!generatedReport?.data.rawResponse) {
+      return [] as string[];
+    }
+
+    const cleanText = generatedReport.data.rawResponse
+      .replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .trim();
+
+    try {
+      const parsed = JSON.parse(cleanText);
+      return formatResponseLines(parsed).filter(Boolean);
+    } catch (_err) {
+      return cleanText
+        .split(/\n+/)
+        .map(line => line.trim())
+        .filter(Boolean);
+    }
+  }, [generatedReport?.data.rawResponse, formatResponseLines]);
+
   const generateReport = useCallback(async () => {
     if (!userQuery.trim()) {
       toast.error('Please enter a query');
@@ -311,9 +364,11 @@ export const GeminiReportGenerator: React.FC<GeminiReportGeneratorProps> = ({
               {generatedReport.data.rawResponse && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-800 mb-2">Full Gemini Response</h4>
-                  <pre className="bg-gray-900 text-gray-100 text-xs p-3 rounded-md overflow-auto">
-                    {generatedReport.data.rawResponse}
-                  </pre>
+                  <div className="bg-gray-50 border border-gray-200 rounded-md p-3 text-sm text-gray-700 space-y-1 whitespace-pre-wrap leading-relaxed">
+                    {readableResponse.map((line, index) => (
+                      <p key={`${line}-${index}`}>{line}</p>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
