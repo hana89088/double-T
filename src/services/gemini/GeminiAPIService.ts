@@ -1,11 +1,15 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { 
-  GeminiPromptObject, 
-  GeminiResponse, 
-  GeminiAPIConfig
+import {
+  GeminiPromptObject,
+  GeminiResponse,
+  GeminiAPIConfig,
+  GeminiInfographicResult,
+  GeminiStructuredReport
 } from '../../types/gemini';
 
 export class GeminiAPIService {
+  private static readonly DEFAULT_INFOGRAPHIC_PROMPT = 'create HTML CSS infographic overview analysis data';
+
   private genAI: GoogleGenerativeAI;
   private model: any;
   private config: GeminiAPIConfig;
@@ -446,6 +450,144 @@ export class GeminiAPIService {
       
       console.error('Error generating Gemini insights:', error);
       throw new Error(`Failed to generate insights: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  public async generateInfographicFromData(
+    data: Record<string, unknown>[] = [],
+    options?: { prompt?: string; title?: string; context?: string }
+  ): Promise<GeminiInfographicResult> {
+    const startTime = Date.now();
+
+    if (!data || data.length === 0) {
+      throw new Error('Data is required to generate an infographic');
+    }
+
+    const sanitizedData = Array.isArray(data) ? (this.sanitizeData(data) as Record<string, unknown>[]) : [];
+    const previewRows = sanitizedData.slice(0, 25);
+    const fields = previewRows[0] ? Object.keys(previewRows[0]) : [];
+
+    const basePrompt = (options?.prompt || '').trim() || GeminiAPIService.DEFAULT_INFOGRAPHIC_PROMPT;
+    const summary = `Records: ${data.length}. Fields: ${fields.join(', ') || 'n/a'}.`;
+    const context = options?.context || 'Use inline CSS only, no external assets or scripts.';
+    const title = options?.title || 'Data-driven infographic';
+
+    const prompt = [
+      `${basePrompt}.`,
+      'Return ONLY HTML (no markdown, no code fences).',
+      'Use responsive, modern inline CSS with clear typography, cards, and subtle gradients.',
+      'Avoid external images, fonts, or scripts. Do not include <script> tags.',
+      'Add a concise headline, key metrics, bullet insights, and a simple layout that can be rendered inside a div.',
+      `Title: ${title}.`,
+      `Context: ${context}`,
+      `Dataset summary: ${summary}`,
+      `First rows (JSON): ${JSON.stringify(previewRows)}`,
+    ].join('\n');
+
+    await this.enforceRateLimit();
+
+    try {
+      const result = await this.retryWithBackoff(async () => {
+        if (!this.connectionStatus.isConnected) {
+          await this.initializeConnection();
+        }
+        const maxConcurrent = (this.config as any).maxConcurrent || 2;
+        while (this.concurrent >= maxConcurrent) {
+          await new Promise(r => setTimeout(r, 50));
+        }
+        this.concurrent++;
+        const generationResult = await this.model.generateContent(prompt);
+        this.concurrent--;
+        return generationResult;
+      });
+
+      const response = await result.response;
+      const rawText = response.text();
+      const cleanHtml = rawText
+        .replace(/```html/gi, '')
+        .replace(/```/g, '')
+        .trim();
+
+      const responseTime = Date.now() - startTime;
+      this.updateMetrics(true, responseTime);
+
+      return {
+        html: cleanHtml,
+        rawResponse: rawText,
+        promptUsed: prompt,
+        summary,
+      };
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      this.updateMetrics(false, responseTime);
+      throw new Error(
+        `Failed to generate infographic: ${error instanceof Error ? error.message : 'Unknown error from Gemini service'}`
+      );
+    }
+  }
+
+  public async generateStructuredReportFromData(
+    data: Record<string, unknown>[] = [],
+    options?: { prompt?: string; reportType?: string; audience?: string }
+  ): Promise<GeminiStructuredReport> {
+    if (!data.length) {
+      throw new Error('Data is required to generate a structured report');
+    }
+
+    const sanitizedData = Array.isArray(data) ? (this.sanitizeData(data) as Record<string, unknown>[]) : [];
+    const previewRows = sanitizedData.slice(0, 25);
+    const fields = previewRows[0] ? Object.keys(previewRows[0]) : [];
+    const basePrompt = (options?.prompt || '').trim() ||
+      'You are an expert marketing analyst. Return ONLY JSON with the fields described. Do not wrap in code fences or markdown.';
+
+    const systemPrompt = [
+      `${basePrompt}`,
+      'Structure the JSON exactly with these top-level keys: report_type, audience, delivery_format, analysis_metadata, security_compliance, executive_summary, performance_metrics, detailed_insights_patterns, actionable_recommendations, risk_assessment_mitigation, future_trend_predictions, data_quality_assessment, suggested_visualizations_charts.',
+      'Use delivery_format: "json".',
+      `Use report_type: ${options?.reportType || 'marketing_insights'}.`,
+      `Target audience: ${options?.audience || 'business'}.`,
+      'Include suggested_visualizations_charts.charts as an array of chart recommendations with chart_type, purpose, data_points, and axes.',
+      'Base insights strictly on the provided data preview. Use concise, non-hallucinated wording.',
+      `Dataset summary: ${sanitizedData.length} records. Fields: ${fields.join(', ') || 'n/a'}.`,
+      `Preview rows JSON: ${JSON.stringify(previewRows)}`,
+      'Respond with valid JSON only.'
+    ].join('\n');
+
+    await this.enforceRateLimit();
+
+    const startTime = Date.now();
+
+    try {
+      const result = await this.retryWithBackoff(async () => {
+        if (!this.connectionStatus.isConnected) {
+          await this.initializeConnection();
+        }
+        const maxConcurrent = (this.config as any).maxConcurrent || 2;
+        while (this.concurrent >= maxConcurrent) {
+          await new Promise(r => setTimeout(r, 50));
+        }
+        this.concurrent++;
+        const generationResult = await this.model.generateContent(systemPrompt);
+        this.concurrent--;
+        return generationResult;
+      });
+
+      const response = await result.response;
+      const rawText = response.text();
+      const cleanJson = rawText
+        .replace(/```json/gi, '')
+        .replace(/```/g, '')
+        .trim();
+
+      const parsed = JSON.parse(cleanJson) as GeminiStructuredReport;
+      const responseTime = Date.now() - startTime;
+      this.updateMetrics(true, responseTime);
+
+      return parsed;
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      this.updateMetrics(false, responseTime);
+      throw new Error(`Failed to generate structured report: ${error instanceof Error ? error.message : 'Unknown Gemini error'}`);
     }
   }
 

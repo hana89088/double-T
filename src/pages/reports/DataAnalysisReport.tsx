@@ -3,10 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell, ScatterChart, Scatter, ResponsiveContainer } from 'recharts'
-import { TrendingUp, BarChart3, PieChart as PieChartIcon, Activity, Download } from 'lucide-react'
+import { TrendingUp, BarChart3, PieChart as PieChartIcon, Activity, Download, Loader2, Sparkles } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import JsPdfFallback from '@/utils/jsPdfFallback'
 import { useDataStore } from '@/stores/dataStore'
+import { GeminiAPIService } from '@/services/gemini/GeminiAPIService'
+import { getGeminiConfig } from '@/config/gemini'
+import { GeminiStructuredReport } from '@/types/gemini'
+import { toast } from 'sonner'
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16', '#F97316']
 
@@ -24,6 +28,12 @@ export default function DataAnalysisReport() {
   const normalizedData = useMemo(() => processedData.map((row, index) => ({ __index: index + 1, ...row })), [processedData])
   const [selectedChart, setSelectedChart] = useState<string>('all')
   const [error, setError] = useState<string | null>(null)
+  const [infographicHtml, setInfographicHtml] = useState<string | null>(null)
+  const [infographicError, setInfographicError] = useState<string | null>(null)
+  const [isGeneratingInfographic, setIsGeneratingInfographic] = useState(false)
+  const [structuredReport, setStructuredReport] = useState<GeminiStructuredReport | null>(null)
+  const [structuredReportError, setStructuredReportError] = useState<string | null>(null)
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false)
 
   const columns = useMemo(() => (normalizedData[0] ? Object.keys(normalizedData[0]) : []), [normalizedData])
   const numericColumns = useMemo(
@@ -152,6 +162,86 @@ export default function DataAnalysisReport() {
     doc.save('marketing-analysis-report.pdf')
   }
 
+  const handleGenerateInfographic = async () => {
+    if (!hasData) {
+      const message = 'Chưa có dữ liệu để tạo infographic. Vui lòng upload và xử lý dữ liệu trước.'
+      setInfographicError(message)
+      toast.error(message)
+      return
+    }
+
+    setIsGeneratingInfographic(true)
+    setInfographicError(null)
+
+    try {
+      const cfg = getGeminiConfig()
+      if (!cfg.apiKey) {
+        throw new Error('Gemini API key chưa được cấu hình để tạo infographic')
+      }
+
+      const service = new GeminiAPIService(cfg)
+      const infographic = await service.generateInfographicFromData(normalizedData.slice(0, 100), {
+        prompt: 'create HTML CSS infographic overview analysis data',
+        title: 'Infographic dữ liệu marketing dựa trên dữ liệu của bạn',
+        context: 'Tạo layout gọn gàng, responsive, dùng inline CSS, không dùng script hoặc tài nguyên ngoài.',
+      })
+
+      setInfographicHtml(infographic.html)
+      toast.success('Đã tạo infographic AI từ dữ liệu thực tế!')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Không thể tạo infographic từ Gemini'
+      setInfographicError(message)
+      toast.error(message)
+    } finally {
+      setIsGeneratingInfographic(false)
+    }
+  }
+
+  const handleGenerateStructuredReport = async () => {
+    if (!hasData) {
+      const message = 'Chưa có dữ liệu để tạo báo cáo AI. Vui lòng upload và xử lý dữ liệu trước.'
+      setStructuredReportError(message)
+      toast.error(message)
+      return
+    }
+
+    setIsGeneratingReport(true)
+    setStructuredReportError(null)
+
+    try {
+      const cfg = getGeminiConfig()
+      if (!cfg.apiKey) {
+        throw new Error('Gemini API key chưa được cấu hình để tạo báo cáo AI')
+      }
+
+      const service = new GeminiAPIService(cfg)
+      const report = await service.generateStructuredReportFromData(normalizedData.slice(0, 120), {
+        reportType: 'marketing_insights',
+        audience: 'business',
+        prompt: 'Return JSON analysis only. No markdown. Provide insights, KPIs, recommendations, and suggested charts.',
+      })
+
+      setStructuredReport(report)
+      toast.success('Đã tạo báo cáo AI ở định dạng JSON!')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Không thể tạo báo cáo JSON từ Gemini'
+      setStructuredReportError(message)
+      toast.error(message)
+    } finally {
+      setIsGeneratingReport(false)
+    }
+  }
+
+  const renderReportSection = (title: string, content?: React.ReactNode) => {
+    if (!content) return null
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <h4 className="font-semibold text-slate-900 mb-3">{title}</h4>
+        <div className="text-sm text-slate-700 space-y-2">{content}</div>
+      </div>
+    )
+  }
+
   const renderBarChart = () => (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={normalizedData}>
@@ -255,6 +345,143 @@ export default function DataAnalysisReport() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Báo cáo Phân tích Marketing</h1>
           <p className="text-gray-600">Phân tích chi tiết dữ liệu marketing với trực quan hóa dựa trên dữ liệu bạn upload</p>
         </div>
+
+        {/* AI Infographic generator */}
+        <Card className="mb-8 border-blue-100 shadow-sm">
+          <CardHeader className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="space-y-1 max-w-3xl">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-blue-600" />
+                <CardTitle className="text-lg">Báo cáo AI (JSON) & Infographic từ dữ liệu thực tế</CardTitle>
+              </div>
+              <p className="text-sm text-gray-600">
+                Gửi dữ liệu đã upload lên Gemini để nhận JSON phân tích chuẩn hóa và/hoặc HTML infographic. JSON có thể dùng lại
+                cho Visualization Studio và Reports & Analytics.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button onClick={handleGenerateStructuredReport} disabled={isGeneratingReport || !hasData} variant="secondary">
+                {isGeneratingReport ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Đang tạo báo cáo JSON...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Tạo báo cáo AI (JSON)
+                  </>
+                )}
+              </Button>
+              <Button onClick={handleGenerateInfographic} disabled={isGeneratingInfographic || !hasData}>
+                {isGeneratingInfographic ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Đang tạo infographic...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Tạo infographic AI
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          {(structuredReportError || structuredReport || infographicError || infographicHtml) && (
+            <CardContent className="space-y-4">
+              {structuredReportError && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {structuredReportError}
+                </div>
+              )}
+              {structuredReport && (
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-900">
+                    JSON đã được phân tích và hiển thị trực tiếp. Có thể tái sử dụng cho Visualization Studio và Reports & Analytics.
+                  </div>
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    {renderReportSection(
+                      structuredReport.executive_summary?.title || 'Executive Summary',
+                      <div className="space-y-2">
+                        {structuredReport.executive_summary?.key_findings?.map((finding, idx) => (
+                          <p key={idx}>• {finding}</p>
+                        ))}
+                        {structuredReport.executive_summary?.overall_recommendation && (
+                          <p className="font-medium">{structuredReport.executive_summary.overall_recommendation}</p>
+                        )}
+                      </div>
+                    )}
+                    {renderReportSection(
+                      structuredReport.actionable_recommendations?.title || 'Khuyến nghị hành động',
+                      structuredReport.actionable_recommendations?.recommendations?.map((rec, idx) => (
+                        <div key={idx} className="rounded-md bg-slate-50 p-2 border border-slate-200">
+                          <p className="font-semibold">{rec.area}</p>
+                          <p className="text-xs text-slate-500">Ưu tiên: {rec.priority || 'N/A'}</p>
+                          <p>{rec.action}</p>
+                          {rec.expected_outcome && <p className="text-xs text-slate-600">Kết quả: {rec.expected_outcome}</p>}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="grid gap-3 lg:grid-cols-3">
+                    {renderReportSection(
+                      structuredReport.performance_metrics?.title || 'Hiệu suất & KPI',
+                      structuredReport.performance_metrics?.metrics_overview?.map((metric, idx) => (
+                        <div key={idx} className="space-y-1 rounded-md bg-white p-2 border border-slate-200">
+                          <p className="font-semibold">{metric.metric}</p>
+                          {metric.trend && <p className="text-xs text-blue-700">Xu hướng: {metric.trend}</p>}
+                          {metric.pattern_status && <p className="text-xs text-amber-700">Trạng thái: {metric.pattern_status}</p>}
+                          {metric.interpretation && <p className="text-sm text-slate-700">{metric.interpretation}</p>}
+                        </div>
+                      ))
+                    )}
+                    {renderReportSection(
+                      structuredReport.detailed_insights_patterns?.title || 'Chi tiết mẫu & insight',
+                      structuredReport.detailed_insights_patterns?.insights?.map((insight, idx) => (
+                        <div key={idx} className="space-y-1 rounded-md bg-white p-2 border border-slate-200">
+                          <p className="font-semibold">{insight.insight}</p>
+                          {insight.description && <p className="text-sm text-slate-700">{insight.description}</p>}
+                          {insight.related_metrics?.length && (
+                            <p className="text-xs text-slate-500">Liên quan: {insight.related_metrics.join(', ')}</p>
+                          )}
+                        </div>
+                      ))
+                    )}
+                    {renderReportSection(
+                      structuredReport.suggested_visualizations_charts?.title || 'Gợi ý biểu đồ',
+                      structuredReport.suggested_visualizations_charts?.charts?.map((chart, idx) => (
+                        <div key={idx} className="space-y-1 rounded-md bg-white p-2 border border-slate-200">
+                          <p className="font-semibold">{chart.chart_type}</p>
+                          {chart.purpose && <p className="text-sm text-slate-700">{chart.purpose}</p>}
+                          {chart.data_points?.length && (
+                            <p className="text-xs text-slate-500">Dữ liệu: {chart.data_points.join(', ')}</p>
+                          )}
+                          {(chart.x_axis || chart.y_axis) && (
+                            <p className="text-xs text-slate-500"> trục: {chart.x_axis || 'x'} / {chart.y_axis || 'y'}</p>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+              {infographicError && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {infographicError}
+                </div>
+              )}
+              {infographicHtml && (
+                <div className="rounded-lg border border-blue-100 bg-white p-4 shadow-inner">
+                  <div
+                    className="prose max-w-none"
+                    dangerouslySetInnerHTML={{ __html: infographicHtml }}
+                  />
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
