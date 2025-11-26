@@ -347,6 +347,29 @@ export class GeminiAPIService {
     return text.substring(startIndex, endIndex).trim();
   }
 
+  private parseJsonResponse(text: string): any {
+    const cleanText = text
+      .replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .trim();
+
+    try {
+      return JSON.parse(cleanText);
+    } catch (_err) {
+      try {
+        const startIndex = cleanText.indexOf('{');
+        const endIndex = cleanText.lastIndexOf('}');
+        if (startIndex !== -1 && endIndex !== -1) {
+          return JSON.parse(cleanText.substring(startIndex, endIndex + 1));
+        }
+      } catch (_innerErr) {
+        // fallthrough
+      }
+
+      throw new Error('Gemini did not return valid JSON');
+    }
+  }
+
   private updateMetrics(success: boolean, responseTime: number): void {
     this.metrics.totalRequests++;
     this.metrics.lastRequestTimestamp = Date.now();
