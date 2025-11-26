@@ -3,20 +3,31 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, BarChart3, Brain, TrendingUp, FileText } from 'lucide-react';
+import { AlertCircle, BarChart3, TrendingUp, FileText } from 'lucide-react';
 import { GeminiReportGenerator } from '@/components/GeminiReportGenerator';
 import { useDataStore } from '@/stores/dataStore';
-import { processData } from '@/utils/dataProcessor';
 import { performStatisticalAnalysis } from '@/utils/statisticalAnalysis';
 import { detectPatterns } from '@/utils/patternRecognition';
 import { findCorrelations } from '@/utils/correlationAnalysis';
 import { toast } from 'sonner';
+import type { StatisticalResults } from '@/utils/statisticalAnalysis';
+import type { Pattern } from '@/utils/patternRecognition';
+
+interface CorrelationResult {
+  field1: string;
+  field2: string;
+  correlation: number;
+  coefficient: number;
+  pValue: number | null;
+  strength: string;
+  direction: string;
+}
 
 const Analysis: React.FC = () => {
-  const { processedData, originalData, ready } = useDataStore();
-  const [statisticalResults, setStatisticalResults] = useState<any>(null);
-  const [patterns, setPatterns] = useState<any[]>([]);
-  const [correlations, setCorrelations] = useState<any[]>([]);
+  const { processedData, ready } = useDataStore();
+  const [statisticalResults, setStatisticalResults] = useState<StatisticalResults | null>(null);
+  const [patterns, setPatterns] = useState<Pattern[]>([]);
+  const [correlations, setCorrelations] = useState<CorrelationResult[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -241,7 +252,13 @@ const Analysis: React.FC = () => {
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* AI Report Generator */}
-              <GeminiReportGenerator className="lg:col-span-2" />
+              <GeminiReportGenerator
+                className="lg:col-span-2"
+                processedData={processedData}
+                statisticalResults={statisticalResults}
+                patterns={patterns}
+                correlations={correlations}
+              />
               
               {/* Quick Stats */}
               <Card>

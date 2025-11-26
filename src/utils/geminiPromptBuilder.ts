@@ -149,10 +149,11 @@ export class GeminiPromptBuilder {
   // Create marketing insights prompt
   public static createMarketingInsightsPrompt(
     datasets: Dataset[],
-    query: string = 'Analyze our marketing performance and provide actionable insights'
+    query: string = 'Analyze our marketing performance and provide actionable insights',
+    context: string = 'Marketing performance analysis for data-driven decision making'
   ): GeminiPromptObject {
     return new GeminiPromptBuilder()
-      .setUserQuery(query, 'Marketing performance analysis for data-driven decision making')
+      .setUserQuery(query, context)
       .setDataContext(datasets)
       .setReportRequirements(
         'marketing_insights',
