@@ -214,6 +214,13 @@ export interface GeminiAPIConfig {
   retryConfig?: RetryConfig
 }
 
+export interface GeminiInfographicResult {
+  html: string
+  rawResponse: string
+  promptUsed: string
+  summary?: string
+}
+
 export interface RateLimitConfig {
   windowMs: number
   maxRequests: number
