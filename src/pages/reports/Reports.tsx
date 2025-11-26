@@ -50,10 +50,12 @@ export default function Reports() {
     try {
       const service = new GeminiAPIService(cfg)
       const response = await service.generateStructuredReportFromData(processedData.slice(0, 200), {
-        title: 'Reports & Analytics AI Summary',
+        reportType: 'reports_analytics',
         audience: 'executive',
+        prompt:
+          'Return JSON only with insights, recommendations, performance metrics, and suggested_visualizations_charts including chart_type, purpose, data_points, x_axis, y_axis.',
       })
-      setAiReport(response.report)
+      setAiReport(response)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Không thể tạo báo cáo AI từ Gemini'
       setAiReportError(message)
