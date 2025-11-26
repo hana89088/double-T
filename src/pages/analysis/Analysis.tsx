@@ -157,7 +157,7 @@ const Analysis: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {correlations.map((correlation, index) => {
             const coefficient = correlation.coefficient ?? correlation.correlation;
-            const pValue = correlation.pValue ?? correlation.p_value;
+            const pValue = correlation.pValue;
 
             return (
             <Card key={index} className="p-4">
