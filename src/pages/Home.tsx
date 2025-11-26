@@ -70,7 +70,10 @@ export default function Home() {
                     <p className="text-lg font-semibold text-slate-900">Upload → Insight → Dashboard → Report</p>
                   </div>
                 </div>
-                <Button size="sm" variant="outline" className="w-full border-slate-200 text-slate-700 hover:bg-slate-100 sm:w-auto">
+                <Button
+                  variant="outline"
+                  className="w-full border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 sm:w-auto"
+                >
                   Xem chi tiết
                 </Button>
               </div>
