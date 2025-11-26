@@ -1,34 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Brain, FileText, LayoutDashboard, Sparkles } from "lucide-react";
-
-const features = [
-  {
-    title: "Nhập dữ liệu linh hoạt",
-    description: "Kéo thả CSV, Excel hoặc dán nhanh văn bản. Hệ thống tự nhận dạng định dạng và làm sạch header, ngày tháng.",
-    icon: FileText,
-    accent: "bg-sky-100 text-sky-600",
-  },
-  {
-    title: "Phân tích AI tức thì",
-    description: "Mô hình gợi ý insight, phân nhóm và các chỉ số chính ngay sau khi tải lên, không cần thiết lập phức tạp.",
-    icon: Brain,
-    accent: "bg-emerald-100 text-emerald-600",
-  },
-  {
-    title: "Dashboard gọn gàng",
-    description: "Biểu đồ, bảng và trạng thái được gom theo mục tiêu marketing giúp bạn nắm bắt hiệu quả chiến dịch nhanh chóng.",
-    icon: LayoutDashboard,
-    accent: "bg-indigo-100 text-indigo-600",
-  },
-  {
-    title: "Báo cáo nhẹ & đẹp",
-    description: "Xuất báo cáo PDF/Link được tối ưu màu sắc, khoảng cách và typography theo chuẩn hiện đại.",
-    icon: BarChart3,
-    accent: "bg-amber-100 text-amber-600",
-  },
-];
+import { Brain, Sparkles } from "lucide-react";
 
 export default function Home() {
   return (
@@ -83,30 +56,6 @@ export default function Home() {
                 </Button>
               </Link>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Card className="border-none bg-white/70 shadow-sm ring-1 ring-slate-200">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
-                    <Sparkles className="h-4 w-4 text-emerald-500" />
-                    UI tinh gọn
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-slate-600">
-                  Bố cục dạng lưới, khoảng cách nhất quán 8/12/16px, ưu tiên nội dung chính, giảm yếu tố trang trí.
-                </CardContent>
-              </Card>
-              <Card className="border-none bg-white/70 shadow-sm ring-1 ring-slate-200">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
-                    <BarChart3 className="h-4 w-4 text-indigo-500" />
-                    Tốc độ & responsive
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-slate-600">
-                  Giảm lặp code, tải nhanh trên mobile, vẫn giữ đầy đủ CTA và điều hướng rõ ràng.
-                </CardContent>
-              </Card>
-            </div>
           </div>
 
           <Card className="border-none bg-white/80 shadow-xl ring-1 ring-slate-200">
@@ -156,34 +105,6 @@ export default function Home() {
           </Card>
         </section>
 
-        <section className="mt-14 space-y-8 lg:mt-16">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-2">
-              <p className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-500">Tối ưu UI/UX</p>
-              <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">Giao diện gọn gàng, dễ đọc, dễ nhấn</h2>
-              <p className="text-base text-slate-600">
-                Tận dụng lưới 12 cột, khoảng cách rõ ràng, màu sắc hài hòa để người dùng tập trung vào dữ liệu và insight.
-              </p>
-            </div>
-            <Link to="/register" className="text-sm font-semibold text-slate-700 underline decoration-2 underline-offset-4">
-              Xem demo nhanh
-            </Link>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-            {features.map(({ title, description, icon: Icon, accent }) => (
-              <Card key={title} className="border-none bg-white/80 shadow-sm ring-1 ring-slate-200">
-                <CardHeader className="pb-2">
-                  <div className={`mb-3 inline-flex h-11 w-11 items-center justify-center rounded-xl ${accent}`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <CardTitle className="text-lg font-semibold text-slate-900">{title}</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm leading-relaxed text-slate-600">{description}</CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
       </main>
 
       <footer className="border-t bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
