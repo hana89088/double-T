@@ -4,14 +4,11 @@ import {
   GeminiResponse,
   GeminiAPIConfig,
   GeminiInfographicResult,
-  GeminiStructuredReport,
-  GeminiStructuredReportResult
+  GeminiStructuredReport
 } from '../../types/gemini';
 
 export class GeminiAPIService {
   private static readonly DEFAULT_INFOGRAPHIC_PROMPT = 'create HTML CSS infographic overview analysis data';
-  private static readonly DEFAULT_JSON_REPORT_PROMPT =
-    'Return a concise JSON marketing insights report ready for visualization and reporting';
 
   private genAI: GoogleGenerativeAI;
   private model: any;
@@ -554,47 +551,34 @@ export class GeminiAPIService {
 
   public async generateStructuredReportFromData(
     data: Record<string, unknown>[] = [],
-    options?: { prompt?: string; audience?: string; title?: string }
-  ): Promise<GeminiStructuredReportResult> {
-    const startTime = Date.now();
-
-    if (!data || data.length === 0) {
+    options?: { prompt?: string; reportType?: string; audience?: string }
+  ): Promise<GeminiStructuredReport> {
+    if (!data.length) {
       throw new Error('Data is required to generate a structured report');
     }
 
     const sanitizedData = Array.isArray(data) ? (this.sanitizeData(data) as Record<string, unknown>[]) : [];
-    const previewRows = sanitizedData.slice(0, 50);
+    const previewRows = sanitizedData.slice(0, 25);
     const fields = previewRows[0] ? Object.keys(previewRows[0]) : [];
-    const basePrompt = (options?.prompt || '').trim() || GeminiAPIService.DEFAULT_JSON_REPORT_PROMPT;
-    const audience = options?.audience || 'business';
-    const reportTitle = options?.title || 'AI marketing insights report';
+    const basePrompt = (options?.prompt || '').trim() ||
+      'You are an expert marketing analyst. Return ONLY JSON with the fields described. Do not wrap in code fences or markdown.';
 
-    const schemaHint = `
-    Expected JSON keys:
-    - report_type (string), audience (string), delivery_format (json)
-    - analysis_metadata { user_id, session_id, priority, last_updated }
-    - security_compliance { compliance[], data_sensitivity }
-    - executive_summary { title, key_findings[], overall_recommendation }
-    - performance_metrics { title, metrics_overview[], kpi_analysis }
-    - detailed_insights_patterns { title, insights[] }
-    - actionable_recommendations { title, recommendations[] }
-    - risk_assessment_mitigation { title, risks[] }
-    - future_trend_predictions { title, predictions[] }
-    - data_quality_assessment { title, overall_score, interpretation, specific_observations[], recommendations[] }
-    - suggested_visualizations_charts { title, charts[] with chart_type, purpose, data_points }
-    `;
-
-    const prompt = [
-      basePrompt,
-      'Respond ONLY with a valid JSON object, no commentary, no markdown fences.',
-      'Use the schema above. Prefer concise strings and numeric values where possible.',
-      `Audience: ${audience}. Report title: ${reportTitle}.`,
-      `Dataset fields: ${fields.join(', ') || 'n/a'}. Records: ${sanitizedData.length}.`,
-      `Sample rows: ${JSON.stringify(previewRows.slice(0, 10))}.`,
-      schemaHint,
+    const systemPrompt = [
+      `${basePrompt}`,
+      'Structure the JSON exactly with these top-level keys: report_type, audience, delivery_format, analysis_metadata, security_compliance, executive_summary, performance_metrics, detailed_insights_patterns, actionable_recommendations, risk_assessment_mitigation, future_trend_predictions, data_quality_assessment, suggested_visualizations_charts.',
+      'Use delivery_format: "json".',
+      `Use report_type: ${options?.reportType || 'marketing_insights'}.`,
+      `Target audience: ${options?.audience || 'business'}.`,
+      'Include suggested_visualizations_charts.charts as an array of chart recommendations with chart_type, purpose, data_points, and axes.',
+      'Base insights strictly on the provided data preview. Use concise, non-hallucinated wording.',
+      `Dataset summary: ${sanitizedData.length} records. Fields: ${fields.join(', ') || 'n/a'}.`,
+      `Preview rows JSON: ${JSON.stringify(previewRows)}`,
+      'Respond with valid JSON only.'
     ].join('\n');
 
     await this.enforceRateLimit();
+
+    const startTime = Date.now();
 
     try {
       const result = await this.retryWithBackoff(async () => {
@@ -606,30 +590,27 @@ export class GeminiAPIService {
           await new Promise(r => setTimeout(r, 50));
         }
         this.concurrent++;
-        const generationResult = await this.model.generateContent(prompt);
+        const generationResult = await this.model.generateContent(systemPrompt);
         this.concurrent--;
         return generationResult;
       });
 
       const response = await result.response;
       const rawText = response.text();
-      const json = this.parseJsonResponse(rawText) as GeminiStructuredReport;
+      const cleanJson = rawText
+        .replace(/```json/gi, '')
+        .replace(/```/g, '')
+        .trim();
 
+      const parsed = JSON.parse(cleanJson) as GeminiStructuredReport;
       const responseTime = Date.now() - startTime;
       this.updateMetrics(true, responseTime);
 
-      return {
-        report: json,
-        rawResponse: rawText,
-        promptUsed: prompt,
-        summary: json?.executive_summary?.title || json?.executive_summary?.overall_recommendation || 'AI generated report',
-      };
+      return parsed;
     } catch (error) {
       const responseTime = Date.now() - startTime;
       this.updateMetrics(false, responseTime);
-      throw new Error(
-        `Failed to generate structured report: ${error instanceof Error ? error.message : 'Unknown error from Gemini service'}`
-      );
+      throw new Error(`Failed to generate structured report: ${error instanceof Error ? error.message : 'Unknown Gemini error'}`);
     }
   }
 

@@ -222,7 +222,7 @@ export interface GeminiInfographicResult {
 }
 
 export interface GeminiStructuredReport {
-  report_type: string
+  report_type?: string
   audience?: string
   delivery_format?: string
   analysis_metadata?: Record<string, any>
@@ -238,11 +238,11 @@ export interface GeminiStructuredReport {
   performance_metrics?: {
     title?: string
     metrics_overview?: Array<{
-      metric: string
+      metric?: string
       mean?: number
       deviation?: number
-      trend?: string
       interpretation?: string
+      trend?: string
       pattern_status?: string
     }>
     kpi_analysis?: Record<string, { status?: string; details?: string }>
@@ -250,7 +250,7 @@ export interface GeminiStructuredReport {
   detailed_insights_patterns?: {
     title?: string
     insights?: Array<{
-      insight: string
+      insight?: string
       description?: string
       related_metrics?: string[]
       correlation_strength?: string
@@ -269,7 +269,7 @@ export interface GeminiStructuredReport {
   risk_assessment_mitigation?: {
     title?: string
     risks?: Array<{
-      risk: string
+      risk?: string
       description?: string
       mitigation_strategy?: string
     }>
@@ -277,7 +277,7 @@ export interface GeminiStructuredReport {
   future_trend_predictions?: {
     title?: string
     predictions?: Array<{
-      trend: string
+      trend?: string
       prediction?: string
       drivers?: string[]
     }>
@@ -292,7 +292,7 @@ export interface GeminiStructuredReport {
   suggested_visualizations_charts?: {
     title?: string
     charts?: Array<{
-      chart_type: string
+      chart_type?: string
       purpose?: string
       data_points?: string[]
       x_axis?: string
@@ -300,13 +300,6 @@ export interface GeminiStructuredReport {
       description?: string
     }>
   }
-}
-
-export interface GeminiStructuredReportResult {
-  report: GeminiStructuredReport
-  rawResponse: string
-  promptUsed: string
-  summary: string
 }
 
 export interface RateLimitConfig {
