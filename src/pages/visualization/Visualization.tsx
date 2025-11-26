@@ -6,6 +6,10 @@ import Heatmap from '../../components/charts/Heatmap'
 import { ChartConfig } from '../../types'
 import { useDataStore } from '../../stores/dataStore'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { GeminiAPIService } from '@/services/gemini/GeminiAPIService'
+import { getGeminiConfig } from '@/config/gemini'
+import { GeminiStructuredReport } from '@/types/gemini'
 
 const correlation = (data: Record<string, any>[], a: string, b: string) => {
   const pairs = data
@@ -31,6 +35,9 @@ export default function Visualization() {
   const [activeChart, setActiveChart] = useState(0)
   const [showHeatmap, setShowHeatmap] = useState(false)
   const [filters, setFilters] = useState<{ categoryColumn?: string; selectedCategories?: string[]; rangeColumn?: string; min?: number; max?: number }>({})
+  const [aiReport, setAiReport] = useState<GeminiStructuredReport | null>(null)
+  const [aiReportError, setAiReportError] = useState<string | null>(null)
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false)
 
   const hasData = ready && preparedData.length > 0
   const columns = useMemo(() => (preparedData[0] ? Object.keys(preparedData[0]) : []), [preparedData])
@@ -68,6 +75,152 @@ export default function Visualization() {
     if (numericColumns.length < 2 || !hasData) return []
     return numericColumns.map((colA) => numericColumns.map((colB) => correlation(preparedData, colA, colB)))
   }, [hasData, numericColumns, preparedData])
+
+  const handleGenerateAiReport = async () => {
+    if (!hasData) {
+      setAiReportError('No processed data available to request an AI visualization report.')
+      return
+    }
+
+    const cfg = getGeminiConfig()
+    if (!cfg.apiKey) {
+      setAiReportError('Gemini API key chưa được cấu hình để tạo báo cáo AI.')
+      return
+    }
+
+    setIsGeneratingReport(true)
+    setAiReportError(null)
+    try {
+      const service = new GeminiAPIService(cfg)
+      const response = await service.generateStructuredReportFromData(preparedData.slice(0, 150), {
+        title: 'Visualization Studio AI Report',
+        audience: 'business',
+      })
+      setAiReport(response.report)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Không thể tạo báo cáo trực quan từ Gemini'
+      setAiReportError(message)
+    } finally {
+      setIsGeneratingReport(false)
+    }
+  }
+
+  const renderAiReport = () => {
+    if (!aiReport) return null
+    return (
+      <div className="space-y-4">
+        {aiReport.executive_summary && (
+          <div className="bg-white border border-blue-100 rounded-lg p-4 shadow-sm">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {aiReport.executive_summary.title || 'Executive Summary'}
+            </h3>
+            {aiReport.executive_summary.key_findings && (
+              <ul className="mt-2 list-disc pl-5 text-sm text-gray-700 space-y-1">
+                {aiReport.executive_summary.key_findings.map((item, idx) => (
+                  <li key={idx}>{item}</li>
+                ))}
+              </ul>
+            )}
+            {aiReport.executive_summary.overall_recommendation && (
+              <p className="mt-3 text-sm text-blue-700 font-medium">
+                {aiReport.executive_summary.overall_recommendation}
+              </p>
+            )}
+          </div>
+        )}
+
+        {aiReport.performance_metrics?.metrics_overview && (
+          <div className="bg-white border border-slate-200 rounded-lg p-4">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">
+              {aiReport.performance_metrics.title || 'Key Metrics'}
+            </h3>
+            <div className="grid md:grid-cols-2 gap-3">
+              {aiReport.performance_metrics.metrics_overview.map((metric, idx) => (
+                <div key={idx} className="border border-gray-100 rounded-lg p-3 bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium text-gray-900">{metric.metric}</p>
+                    {metric.trend && <span className="text-xs text-blue-600">{metric.trend}</span>}
+                  </div>
+                  {metric.mean !== undefined && (
+                    <p className="text-sm text-gray-700">Mean: {metric.mean.toLocaleString()}</p>
+                  )}
+                  {metric.deviation !== undefined && (
+                    <p className="text-sm text-gray-700">Deviation: {metric.deviation.toLocaleString()}</p>
+                  )}
+                  {metric.pattern_status && (
+                    <p className="text-xs text-amber-700 mt-1">{metric.pattern_status}</p>
+                  )}
+                  {metric.interpretation && (
+                    <p className="text-xs text-gray-600 mt-1">{metric.interpretation}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {aiReport.detailed_insights_patterns?.insights && (
+          <div className="bg-white border border-emerald-100 rounded-lg p-4">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">
+              {aiReport.detailed_insights_patterns.title || 'Insights & Patterns'}
+            </h3>
+            <div className="space-y-3">
+              {aiReport.detailed_insights_patterns.insights.map((insight, idx) => (
+                <div key={idx} className="border border-emerald-100 bg-emerald-50/50 rounded p-3">
+                  <p className="font-medium text-emerald-900">{insight.insight}</p>
+                  {insight.description && <p className="text-sm text-emerald-800 mt-1">{insight.description}</p>}
+                  {insight.related_metrics && (
+                    <p className="text-xs text-emerald-700 mt-1">Metrics: {insight.related_metrics.join(', ')}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {aiReport.actionable_recommendations?.recommendations && (
+          <div className="bg-white border border-purple-100 rounded-lg p-4">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">
+              {aiReport.actionable_recommendations.title || 'Recommendations'}
+            </h3>
+            <div className="space-y-3">
+              {aiReport.actionable_recommendations.recommendations.map((rec, idx) => (
+                <div key={idx} className="border border-purple-100 bg-purple-50/50 rounded p-3">
+                  <p className="font-semibold text-purple-900">{rec.area || 'Action Item'}</p>
+                  {rec.priority && (
+                    <span className="text-xs inline-block rounded bg-purple-200 text-purple-800 px-2 py-0.5 mr-2">
+                      {rec.priority}
+                    </span>
+                  )}
+                  {rec.action && <p className="text-sm text-purple-900 mt-1">{rec.action}</p>}
+                  {rec.details && <p className="text-xs text-gray-700 mt-1">{rec.details}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {aiReport.suggested_visualizations_charts?.charts && (
+          <div className="bg-white border border-orange-100 rounded-lg p-4">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">
+              {aiReport.suggested_visualizations_charts.title || 'Suggested Visualizations'}
+            </h3>
+            <div className="grid md:grid-cols-2 gap-3">
+              {aiReport.suggested_visualizations_charts.charts.map((chart, idx) => (
+                <div key={idx} className="border border-orange-100 bg-orange-50/50 rounded p-3">
+                  <p className="font-medium text-orange-900">{chart.chart_type}</p>
+                  {chart.purpose && <p className="text-sm text-orange-800">{chart.purpose}</p>}
+                  {chart.data_points && (
+                    <p className="text-xs text-gray-700 mt-1">Data: {chart.data_points.join(', ')}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   useEffect(() => {
     if (!hasData) {
@@ -150,6 +303,24 @@ export default function Visualization() {
             Create interactive charts and visualizations from your data.
           </p>
         </div>
+
+        {hasData && (
+          <div className="mb-8 bg-white border border-blue-100 rounded-lg p-4 shadow-sm">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">AI Visualization Report</h2>
+                <p className="text-sm text-gray-600">
+                  Gọi Gemini để trả về JSON marketing insights và tự dựng báo cáo trực quan từ dữ liệu của bạn.
+                </p>
+              </div>
+              <Button onClick={handleGenerateAiReport} disabled={isGeneratingReport}>
+                {isGeneratingReport ? 'Đang tạo báo cáo...' : 'Tạo báo cáo AI'}
+              </Button>
+            </div>
+            {aiReportError && <p className="mt-3 text-sm text-red-600">{aiReportError}</p>}
+            {aiReport && <div className="mt-4">{renderAiReport()}</div>}
+          </div>
+        )}
 
         {!hasData ? (
           <Alert variant="destructive" className="mb-8">
