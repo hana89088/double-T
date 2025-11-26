@@ -3,10 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell, ScatterChart, Scatter, ResponsiveContainer } from 'recharts'
-import { TrendingUp, BarChart3, PieChart as PieChartIcon, Activity, Download } from 'lucide-react'
+import { TrendingUp, BarChart3, PieChart as PieChartIcon, Activity, Download, Loader2, Sparkles } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import JsPdfFallback from '@/utils/jsPdfFallback'
 import { useDataStore } from '@/stores/dataStore'
+import { GeminiAPIService } from '@/services/gemini/GeminiAPIService'
+import { getGeminiConfig } from '@/config/gemini'
+import { GeminiVisualizationReport } from '@/types/gemini'
+import { toast } from 'sonner'
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16', '#F97316']
 
@@ -24,6 +28,10 @@ export default function DataAnalysisReport() {
   const normalizedData = useMemo(() => processedData.map((row, index) => ({ __index: index + 1, ...row })), [processedData])
   const [selectedChart, setSelectedChart] = useState<string>('all')
   const [error, setError] = useState<string | null>(null)
+  const [aiReport, setAiReport] = useState<GeminiVisualizationReport | null>(null)
+  const [aiReportError, setAiReportError] = useState<string | null>(null)
+  const [aiRawResponse, setAiRawResponse] = useState<string | null>(null)
+  const [isGeneratingAiReport, setIsGeneratingAiReport] = useState(false)
 
   const columns = useMemo(() => (normalizedData[0] ? Object.keys(normalizedData[0]) : []), [normalizedData])
   const numericColumns = useMemo(
@@ -152,6 +160,43 @@ export default function DataAnalysisReport() {
     doc.save('marketing-analysis-report.pdf')
   }
 
+  const handleGenerateAiReport = async () => {
+    if (!hasData) {
+      const message = 'Chưa có dữ liệu để tạo report. Vui lòng upload và xử lý dữ liệu trước.'
+      setAiReportError(message)
+      toast.error(message)
+      return
+    }
+
+    setIsGeneratingAiReport(true)
+    setAiReportError(null)
+
+    try {
+      const cfg = getGeminiConfig()
+      if (!cfg.apiKey) {
+        throw new Error('Gemini API key chưa được cấu hình để tạo report')
+      }
+
+      const service = new GeminiAPIService(cfg)
+      const report = await service.generateVisualizationReport(normalizedData.slice(0, 150), {
+        prompt: 'create JSON infographic overview analysis data',
+        title: 'JSON infographic & visualization brief từ dữ liệu marketing thực tế',
+        context:
+          'Trả về JSON tinh gọn, không markdown. Dùng nội dung để dựng info report và gợi ý biểu đồ cho Visualization Studio.',
+      })
+
+      setAiReport(report)
+      setAiRawResponse(report.raw_text || '')
+      toast.success('Đã tạo JSON report từ Gemini!')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Không thể tạo report từ Gemini'
+      setAiReportError(message)
+      toast.error(message)
+    } finally {
+      setIsGeneratingAiReport(false)
+    }
+  }
+
   const renderBarChart = () => (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={normalizedData}>
@@ -255,6 +300,171 @@ export default function DataAnalysisReport() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Báo cáo Phân tích Marketing</h1>
           <p className="text-gray-600">Phân tích chi tiết dữ liệu marketing với trực quan hóa dựa trên dữ liệu bạn upload</p>
         </div>
+
+        {/* AI JSON visualization report */}
+        <Card className="mb-8 border-blue-100 shadow-sm">
+          <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-blue-600" />
+                <CardTitle className="text-lg">Visualization JSON từ Gemini</CardTitle>
+              </div>
+              <p className="text-sm text-gray-600">
+                Gửi dữ liệu thực tế lên Gemini và yêu cầu trả về JSON report (không markdown) để dựng info report và gợi ý biểu
+                đồ cho Visualization Studio.
+              </p>
+            </div>
+            <Button onClick={handleGenerateAiReport} disabled={isGeneratingAiReport || !hasData}>
+              {isGeneratingAiReport ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Đang tạo report...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Visualization JSON
+                </>
+              )}
+            </Button>
+          </CardHeader>
+          {(aiReportError || aiReport) && (
+            <CardContent className="space-y-4">
+              {aiReportError && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {aiReportError}
+                </div>
+              )}
+
+              {aiReport && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <div className="lg:col-span-2 space-y-4">
+                    {aiReport.executive_summary && (
+                      <div className="rounded-lg border border-blue-100 bg-white p-4 shadow-inner">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="text-base font-semibold text-gray-900">
+                            {aiReport.executive_summary.title || 'Executive Summary'}
+                          </h3>
+                          <span className="text-xs text-gray-500">{aiReport.report_type}</span>
+                        </div>
+                        <ul className="list-disc pl-4 text-sm text-gray-700 space-y-1">
+                          {(aiReport.executive_summary.key_findings || []).map((finding, idx) => (
+                            <li key={idx}>{finding}</li>
+                          ))}
+                        </ul>
+                        {aiReport.executive_summary.overall_recommendation && (
+                          <p className="mt-2 text-sm text-blue-700">
+                            {aiReport.executive_summary.overall_recommendation}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {aiReport.actionable_recommendations?.recommendations?.length ? (
+                      <div className="rounded-lg border border-emerald-100 bg-white p-4 shadow-inner">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Activity className="h-4 w-4 text-emerald-600" />
+                          <h3 className="text-base font-semibold text-gray-900">Hành động đề xuất</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {aiReport.actionable_recommendations.recommendations.map((rec, idx) => (
+                            <div key={idx} className="rounded border border-emerald-100 bg-emerald-50 p-3 text-sm">
+                              <div className="flex items-center justify-between text-xs text-emerald-800 mb-1">
+                                <span className="font-semibold">{rec.area || 'Khu vực'}</span>
+                                <span className="uppercase">{rec.priority}</span>
+                              </div>
+                              <p className="font-medium text-gray-900">{rec.action}</p>
+                              {rec.expected_outcome && (
+                                <p className="text-xs text-gray-700 mt-1">{rec.expected_outcome}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {aiReport.performance_metrics?.metrics_overview?.length ? (
+                      <div className="rounded-lg border border-indigo-100 bg-white p-4 shadow-inner">
+                        <div className="flex items-center gap-2 mb-3">
+                          <BarChart3 className="h-4 w-4 text-indigo-600" />
+                          <h3 className="text-base font-semibold text-gray-900">
+                            {aiReport.performance_metrics.title || 'Hiệu suất & KPI'}
+                          </h3>
+                        </div>
+                        <div className="space-y-2">
+                          {aiReport.performance_metrics.metrics_overview.map((metric, idx) => (
+                            <div key={idx} className="rounded border border-indigo-50 bg-indigo-50/60 p-3 text-sm">
+                              <div className="flex items-center justify-between">
+                                <span className="font-semibold text-gray-900">{metric.metric}</span>
+                                {(metric.trend || metric.pattern_status) && (
+                                  <span className="text-xs text-indigo-700">{metric.trend || metric.pattern_status}</span>
+                                )}
+                              </div>
+                              {metric.interpretation && (
+                                <p className="text-gray-700 text-sm mt-1">{metric.interpretation}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-4">
+                    {aiReport.suggested_visualizations_charts?.charts?.length ? (
+                      <div className="rounded-lg border border-orange-100 bg-white p-4 shadow-inner">
+                        <div className="flex items-center gap-2 mb-2">
+                          <PieChartIcon className="h-4 w-4 text-orange-500" />
+                          <h3 className="text-base font-semibold text-gray-900">Gợi ý biểu đồ</h3>
+                        </div>
+                        <div className="space-y-3">
+                          {aiReport.suggested_visualizations_charts.charts.map((chart, idx) => (
+                            <div key={idx} className="rounded border border-orange-50 bg-orange-50 p-3 text-sm">
+                              <div className="flex items-center justify-between text-xs text-orange-700 mb-1">
+                                <span className="font-semibold uppercase">{chart.chart_type}</span>
+                                <span>{chart.purpose}</span>
+                              </div>
+                              <p className="text-gray-800 text-sm">{chart.description}</p>
+                              {chart.data_points?.length ? (
+                                <p className="text-xs text-gray-600 mt-1">Dữ liệu: {chart.data_points.join(', ')}</p>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {aiReport.data_quality_assessment && (
+                      <div className="rounded-lg border border-slate-100 bg-white p-4 shadow-inner text-sm space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Activity className="h-4 w-4 text-slate-600" />
+                          <h3 className="font-semibold text-gray-900">Data Quality</h3>
+                        </div>
+                        {aiReport.data_quality_assessment.interpretation && (
+                          <p className="text-gray-800">{aiReport.data_quality_assessment.interpretation}</p>
+                        )}
+                        {aiReport.data_quality_assessment.specific_observations?.length ? (
+                          <ul className="list-disc pl-4 text-gray-700 space-y-1">
+                            {aiReport.data_quality_assessment.specific_observations.map((item, idx) => (
+                              <li key={idx}>{item}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    )}
+
+                    {aiRawResponse && (
+                      <details className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700">
+                        <summary className="cursor-pointer font-semibold text-gray-900">Raw JSON từ Gemini</summary>
+                        <pre className="whitespace-pre-wrap break-words mt-2">{aiRawResponse}</pre>
+                      </details>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
