@@ -214,6 +214,110 @@ export interface GeminiAPIConfig {
   retryConfig?: RetryConfig
 }
 
+export interface GeminiInfographicResult {
+  html: string
+  rawResponse: string
+  promptUsed: string
+  summary?: string
+}
+
+export interface GeminiExecutiveSummary {
+  title?: string
+  key_findings?: string[]
+  overall_recommendation?: string
+}
+
+export interface GeminiPerformanceMetricOverview {
+  metric: string
+  mean?: number
+  deviation?: number
+  interpretation?: string
+  trend?: string
+  pattern_status?: string
+}
+
+export interface GeminiPerformanceMetrics {
+  title?: string
+  metrics_overview?: GeminiPerformanceMetricOverview[]
+  kpi_analysis?: Record<string, { status?: string; details?: string }>
+}
+
+export interface GeminiInsightPattern {
+  insight: string
+  description?: string
+  related_metrics?: string[]
+  correlation_strength?: string
+}
+
+export interface GeminiActionableRecommendation {
+  priority?: string
+  area?: string
+  action?: string
+  details?: string
+  expected_outcome?: string
+}
+
+export interface GeminiRiskItem {
+  risk: string
+  description?: string
+  mitigation_strategy?: string
+}
+
+export interface GeminiPrediction {
+  trend: string
+  prediction?: string
+  drivers?: string[]
+}
+
+export interface GeminiSuggestedChart {
+  chart_type: string
+  purpose?: string
+  data_points?: string[]
+  x_axis?: string
+  y_axis?: string
+  description?: string
+}
+
+export interface GeminiVisualizationReport {
+  report_type?: string
+  audience?: string
+  delivery_format?: string
+  analysis_metadata?: Record<string, any>
+  security_compliance?: Record<string, any>
+  executive_summary?: GeminiExecutiveSummary
+  performance_metrics?: GeminiPerformanceMetrics
+  detailed_insights_patterns?: {
+    title?: string
+    insights?: GeminiInsightPattern[]
+  }
+  actionable_recommendations?: {
+    title?: string
+    recommendations?: GeminiActionableRecommendation[]
+  }
+  risk_assessment_mitigation?: {
+    title?: string
+    risks?: GeminiRiskItem[]
+  }
+  future_trend_predictions?: {
+    title?: string
+    predictions?: GeminiPrediction[]
+  }
+  data_quality_assessment?: {
+    title?: string
+    overall_score?: number
+    interpretation?: string
+    specific_observations?: string[]
+    recommendations?: string[]
+  }
+  suggested_visualizations_charts?: {
+    title?: string
+    charts?: GeminiSuggestedChart[]
+  }
+  raw_text?: string
+  promptUsed?: string
+  summary?: string
+}
+
 export interface RateLimitConfig {
   windowMs: number
   maxRequests: number
