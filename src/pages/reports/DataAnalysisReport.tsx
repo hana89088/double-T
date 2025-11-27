@@ -35,6 +35,7 @@ export default function DataAnalysisReport() {
   const [structuredReport, setStructuredReport] = useState<GeminiStructuredReport | null>(null)
   const [structuredReportError, setStructuredReportError] = useState<string | null>(null)
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
+  const [infographicPreviewMode, setInfographicPreviewMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
   const [aiChartConfigs, setAiChartConfigs] = useState<ChartConfig[]>([])
   const [aiChartError, setAiChartError] = useState<string | null>(null)
   const [isGeneratingAiCharts, setIsGeneratingAiCharts] = useState(false)
@@ -242,6 +243,17 @@ export default function DataAnalysisReport() {
       toast.error(message)
     } finally {
       setIsGeneratingReport(false)
+    }
+  }
+
+  const getPreviewWidth = (mode: 'desktop' | 'tablet' | 'mobile') => {
+    switch (mode) {
+      case 'mobile':
+        return 390
+      case 'tablet':
+        return 768
+      default:
+        return 1200
     }
   }
 
@@ -644,11 +656,61 @@ export default function DataAnalysisReport() {
                 </div>
               )}
               {infographicHtml && (
-                <div className="rounded-lg border border-blue-100 bg-white p-4 shadow-inner">
+                <div className="rounded-lg border border-blue-100 bg-white p-4 shadow-inner space-y-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm font-medium text-slate-900">Xem trước infographic</p>
+                    <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 text-xs font-medium text-slate-600">
+                      {(
+                        [
+                          { key: 'desktop' as const, label: 'Desktop' },
+                          { key: 'tablet' as const, label: 'Tablet' },
+                          { key: 'mobile' as const, label: 'Mobile' },
+                        ]
+                      ).map((mode) => (
+                        <button
+                          key={mode.key}
+                          type="button"
+                          onClick={() => setInfographicPreviewMode(mode.key)}
+                          className={`rounded-md px-3 py-1 transition ${
+                            infographicPreviewMode === mode.key
+                              ? 'bg-slate-900 text-white shadow-sm'
+                              : 'text-slate-600 hover:bg-white'
+                          }`}
+                        >
+                          {mode.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div
-                    className="prose max-w-none"
-                    dangerouslySetInnerHTML={{ __html: infographicHtml }}
-                  />
+                    className={`mx-auto w-full ${
+                      infographicPreviewMode === 'mobile'
+                        ? 'max-w-sm'
+                        : infographicPreviewMode === 'tablet'
+                          ? 'max-w-3xl'
+                          : 'max-w-full'
+                    }`}
+                    style={{ width: `${getPreviewWidth(infographicPreviewMode)}px`, maxWidth: '100%' }}
+                  >
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md">
+                      <div className="bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white">
+                        {infographicPreviewMode === 'mobile'
+                          ? 'Mobile preview (390px)'
+                          : infographicPreviewMode === 'tablet'
+                            ? 'Tablet preview (768px)'
+                            : 'Desktop preview (full width)'}
+                      </div>
+                      <div className="p-4">
+                        <div
+                          className="prose max-w-none"
+                          dangerouslySetInnerHTML={{ __html: infographicHtml }}
+                        />
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">
+                      Điều chỉnh chế độ xem để kiểm tra bố cục infographic trên desktop, tablet và mobile.
+                    </p>
+                  </div>
                 </div>
               )}
             </CardContent>
