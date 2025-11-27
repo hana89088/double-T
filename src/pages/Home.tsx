@@ -14,7 +14,7 @@ export default function Home() {
             </span>
             <div>
               <p className="text-sm font-medium text-slate-500">Marketing Insights</p>
-              <p className="text-lg font-semibold text-slate-900">AI Analytics</p>
+              <p className="text-lg font-semibold text-slate-900">AI Analytics  by Double T</p>
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
@@ -35,7 +35,7 @@ export default function Home() {
           <div className="space-y-6 text-center sm:text-left">
             <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/5 px-3 py-1 text-sm font-medium text-slate-700">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Nền tảng webtool tối ưu cho marketer 2024
+              Nền tảng webtool tối ưu cho marketer 2025
             </div>
             <div className="space-y-4">
               <h1 className="text-3xl font-semibold leading-tight text-slate-900 sm:text-4xl lg:text-5xl">
@@ -117,7 +117,7 @@ export default function Home() {
 
       <footer className="border-t bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-6 sm:px-6 sm:py-8 lg:flex-row lg:px-8">
-          <p className="text-sm text-slate-600">© 2024 Marketing Insights. Mọi quyền được bảo lưu.</p>
+          <p className="text-sm text-slate-600">© 2025 Marketing Insights. Mọi quyền được bảo lưu.</p>
           <div className="flex items-center gap-4 text-sm text-slate-600">
             <span>Chính sách bảo mật</span>
             <span className="h-1 w-1 rounded-full bg-slate-400" />
